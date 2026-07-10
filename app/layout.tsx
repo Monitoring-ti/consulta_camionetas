@@ -4,6 +4,16 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Monitoring Admin | Control de Vehículos',
   description: 'Panel de administración de vehículos e inspecciones – Monitoring SPA',
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
 }
 
 export default function RootLayout({

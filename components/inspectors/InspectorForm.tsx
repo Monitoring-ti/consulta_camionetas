@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { saveWorkerAction, deleteWorkerAction } from '@/app/actions'
 import type { Inspector, InspectorInsert, InspectorUpdate } from '@/types/app.types'
 
 interface InspectorFormProps {
@@ -35,8 +35,6 @@ export default function InspectorForm({ initialData, mode }: InspectorFormProps)
     setError('')
     setLoading(true)
 
-    const supabase = createClient()
-
     const payload = {
       nombre: form.nombre.trim(),
       cargo: form.cargo.trim(),
@@ -48,15 +46,10 @@ export default function InspectorForm({ initialData, mode }: InspectorFormProps)
       vencimiento_licencia_interna: form.vencimiento_licencia_interna || null,
     }
 
-    let result
-    if (mode === 'create') {
-      result = await (supabase.from('inspectors') as any).insert(payload).select().single()
-    } else {
-      result = await (supabase.from('inspectors') as any).update(payload).eq('id', initialData!.id).select().single()
-    }
+    const res = await saveWorkerAction(mode, initialData?.id, payload)
 
-    if (result.error) {
-      setError(result.error.message)
+    if (!res.ok) {
+      setError(res.error || 'Error al guardar trabajador')
       setLoading(false)
       return
     }
@@ -67,8 +60,13 @@ export default function InspectorForm({ initialData, mode }: InspectorFormProps)
 
   async function handleDelete() {
     if (!confirm('¿Seguro que deseas desactivar este trabajador?')) return
-    const supabase = createClient()
-    await (supabase.from('inspectors') as any).update({ is_active: false }).eq('id', initialData!.id)
+    setLoading(true)
+    const res = await deleteWorkerAction(initialData!.id)
+    if (!res.ok) {
+      setError(res.error || 'Error al desactivar trabajador')
+      setLoading(false)
+      return
+    }
     router.push('/inspectors')
     router.refresh()
   }

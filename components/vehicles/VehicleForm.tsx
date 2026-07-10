@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { saveVehicleAction, deleteVehicleAction } from '@/app/actions'
 import type { VehicleInsert, VehicleUpdate, Vehicle } from '@/types/app.types'
 
 interface VehicleFormProps {
@@ -43,8 +43,6 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
     setError('')
     setLoading(true)
 
-    const supabase = createClient()
-
     const payload = {
       patente: form.patente.toUpperCase().trim(),
       marca: form.marca.trim(),
@@ -64,27 +62,27 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
       vencimiento_gps: form.vencimiento_gps || null,
     }
 
-    let result
-    if (mode === 'create') {
-      result = await (supabase.from('vehicles') as any).insert(payload).select().single()
-    } else {
-      result = await (supabase.from('vehicles') as any).update(payload).eq('id', initialData!.id).select().single()
-    }
+    const res = await saveVehicleAction(mode, initialData?.id, payload)
 
-    if (result.error) {
-      setError(result.error.message)
+    if (!res.ok) {
+      setError(res.error || 'Error al guardar vehículo')
       setLoading(false)
       return
     }
 
-    router.push(`/vehicles/${result.data.id}`)
+    router.push(`/vehicles/${res.data.id}`)
     router.refresh()
   }
 
   async function handleDelete() {
     if (!confirm('¿Seguro que deseas desactivar este vehículo?')) return
-    const supabase = createClient()
-    await (supabase.from('vehicles') as any).update({ is_active: false }).eq('id', initialData!.id)
+    setLoading(true)
+    const res = await deleteVehicleAction(initialData!.id)
+    if (!res.ok) {
+      setError(res.error || 'Error al desactivar vehículo')
+      setLoading(false)
+      return
+    }
     router.push('/vehicles')
     router.refresh()
   }

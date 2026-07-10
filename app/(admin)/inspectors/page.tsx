@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getDocStatus, formatDate } from '@/lib/utils/dates'
 import type { Inspector } from '@/types/app.types'
+import Link from 'next/link'
 
 export default async function InspectorsPage() {
   const supabase = await createClient()
@@ -14,9 +15,14 @@ export default async function InspectorsPage() {
 
   return (
     <>
-      <div className="page-header">
-        <h1 className="page-title">Inspectores</h1>
-        <p className="page-subtitle">{inspectors.length} inspectores registrados</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 className="page-title">Trabajadores</h1>
+          <p className="page-subtitle">{inspectors.length} trabajadores registrados</p>
+        </div>
+        <Link href="/inspectors/new" className="btn btn-primary">
+          + Nuevo Trabajador
+        </Link>
       </div>
 
       <div className="page-body">
@@ -37,18 +43,19 @@ export default async function InspectorsPage() {
                   <th>Lic. Interna</th>
                   <th>Tipo</th>
                   <th>Estado</th>
+                  <th style={{ textAlign: 'right' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {inspectors.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <div className="empty-state">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                           <circle cx="12" cy="7" r="4" />
                         </svg>
-                        <p>No hay inspectores registrados</p>
+                        <p>No hay trabajadores registrados</p>
                       </div>
                     </td>
                   </tr>
@@ -84,6 +91,11 @@ export default async function InspectorsPage() {
                           <span className={`badge ${insp.is_active ? 'badge-active' : 'badge-inactive'}`}>
                             {insp.is_active ? 'Activo' : 'Inactivo'}
                           </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <Link href={`/inspectors/${insp.id}/edit`} className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>
+                            Editar
+                          </Link>
                         </td>
                       </tr>
                     )

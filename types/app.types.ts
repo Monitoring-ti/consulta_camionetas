@@ -7,6 +7,8 @@ export type VehicleUpdate = Database['public']['Tables']['vehicles']['Update']
 export type Inspection = Database['public']['Tables']['monitoring_inspections']['Row']
 export type InspectionDetail = Database['public']['Tables']['monitoring_inspection_details']['Row']
 export type Inspector = Database['public']['Tables']['inspectors']['Row']
+export type InspectorInsert = Database['public']['Tables']['inspectors']['Insert']
+export type InspectorUpdate = Database['public']['Tables']['inspectors']['Update']
 
 // Estado de documento por vencimiento
 export type DocStatus = 'ok' | 'warning' | 'danger' | 'nodata'

@@ -22,6 +22,22 @@ const nextConfig: NextConfig = {
       fullUrl: false,
     },
   },
+
+  // Redirecciones de rutas obsoletas
+  async redirects() {
+    return [
+      {
+        source: '/inspectors',
+        destination: '/workers',
+        permanent: true,
+      },
+      {
+        source: '/inspectors/:path*',
+        destination: '/workers',
+        permanent: true,
+      },
+    ]
+  },
 };
 
 export default nextConfig;

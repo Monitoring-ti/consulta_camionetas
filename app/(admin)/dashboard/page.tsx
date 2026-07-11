@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { fetchAlertasVencimiento } from '@/app/actions'
 import { getDocStatus, daysUntil } from '@/lib/utils/dates'
 import type { Vehicle } from '@/types/app.types'
 import Link from 'next/link'
@@ -50,6 +51,13 @@ export default async function DashboardPage() {
     .select('id, resultado')
     .gte('fecha', oneMonthAgo.toISOString().split('T')[0])
 
+  // Alertas de vencimiento de documentos de trabajadores
+  const alertasTrabajadores = await fetchAlertasVencimiento()
+  const alertasTrabVencidas = alertasTrabajadores.filter(a => a.daysLeft < 0)
+  const alertasTrab7 = alertasTrabajadores.filter(a => a.daysLeft >= 0 && a.daysLeft <= 7)
+  const alertasTrab30 = alertasTrabajadores.filter(a => a.daysLeft > 7 && a.daysLeft <= 30)
+  const alertasTrab60 = alertasTrabajadores.filter(a => a.daysLeft > 30 && a.daysLeft <= 60)
+
   // Calcular KPIs
   const vehicleList = (vehicles as Vehicle[] | null) ?? []
   const vehiculosActivos = vehicleList.length
@@ -57,6 +65,7 @@ export default async function DashboardPage() {
   const inspeccionesUltimoMes = recentList.length
   const aptos = recentList.filter(i => i.resultado?.toLowerCase().includes('apto') && !i.resultado?.toLowerCase().includes('no')).length
   const porcentajeAptos = inspeccionesUltimoMes > 0 ? Math.round((aptos / inspeccionesUltimoMes) * 100) : 0
+  const trabajadoresConVenc = new Set(alertasTrabVencidas.map(a => a.id_trabajador)).size
 
   // Calcular alertas
   type AlertItem = {
@@ -108,7 +117,7 @@ export default async function DashboardPage() {
     <>
       <div className="page-header">
         <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">Resumen operacional — vehículos e inspecciones</p>
+        <p className="page-subtitle">Resumen operacional — vehículos, inspecciones y trabajadores</p>
       </div>
 
       <div className="page-body">
@@ -133,6 +142,11 @@ export default async function DashboardPage() {
             <div className="kpi-label">Docs Vencidos</div>
             <div className="kpi-value">{vehiculosConDocVencido}</div>
             <div className="kpi-sub">vehículos afectados</div>
+          </div>
+          <div className="kpi-card danger">
+            <div className="kpi-label">Trabaj. con Doc Vencido</div>
+            <div className="kpi-value">{trabajadoresConVenc}</div>
+            <div className="kpi-sub">trabajadores afectados</div>
           </div>
         </div>
 
@@ -261,7 +275,134 @@ export default async function DashboardPage() {
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-              <p style={{ color: 'var(--status-ok)', fontWeight: 600 }}>¡Todo al día!</p>
+              <p style={{ color: 'var(--status-ok)', fontWeight: 600 }}>¡Vehículos al día!</p>
+              <p style={{ marginTop: 4 }}>No hay documentos de vehículos vencidos ni por vencer en 60 días.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Alertas de Trabajadores ─── */}
+        <div style={{ marginTop: 36, marginBottom: 16, borderTop: '1px solid var(--border)', paddingTop: 28 }}>
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            Documentos de Trabajadores
+          </h2>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 16 }}>Vencimientos de licencia conducir, examen ocupacional, altura/geo y psicosensométrico</p>
+        </div>
+
+        {alertasTrabVencidas.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 10, color: 'var(--status-danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              🔴 Vencidos — {new Set(alertasTrabVencidas.map(a => a.id_trabajador)).size} trabajador(es) afectado(s)
+            </h3>
+            <div className="alert-grid">
+              {groupByWorker(alertasTrabVencidas).map(g => (
+                <Link key={g.id_trabajador} href={`/workers/${encodeURIComponent(g.id_trabajador)}/edit`} style={{ textDecoration: 'none' }}>
+                  <div className="alert-card danger">
+                    <div className="alert-card-patente">{g.nombre}</div>
+                    <div className="alert-card-vehicle" style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{g.rut}</div>
+                    {g.cargo && <div className="alert-card-vehicle">{g.cargo}</div>}
+                    <div className="alert-card-items">
+                      {g.items.map(item => (
+                        <div key={item.campo} className="alert-card-item">
+                          <span className="alert-card-item-name">{item.label}</span>
+                          <span className="badge badge-danger" style={{ fontSize: '0.7rem', padding: '2px 7px' }}>
+                            {Math.abs(item.daysLeft)}d vencido
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {alertasTrab7.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 10, color: 'var(--status-danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              🔥 Vencen en 7 días — {alertasTrab7.length} doc(s)
+            </h3>
+            <div className="alert-grid">
+              {groupByWorker(alertasTrab7).map(g => (
+                <Link key={g.id_trabajador} href={`/workers/${encodeURIComponent(g.id_trabajador)}/edit`} style={{ textDecoration: 'none' }}>
+                  <div className="alert-card danger">
+                    <div className="alert-card-patente">{g.nombre}</div>
+                    <div className="alert-card-vehicle" style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{g.rut}</div>
+                    <div className="alert-card-items">
+                      {g.items.map(item => (
+                        <div key={item.campo} className="alert-card-item">
+                          <span className="alert-card-item-name">{item.label}</span>
+                          <span className="badge badge-danger" style={{ fontSize: '0.7rem', padding: '2px 7px' }}>{item.daysLeft}d</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {alertasTrab30.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 10, color: 'var(--status-warning)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              ⚠️ Vencen en 30 días — {alertasTrab30.length} doc(s)
+            </h3>
+            <div className="alert-grid">
+              {groupByWorker(alertasTrab30).map(g => (
+                <Link key={g.id_trabajador} href={`/workers/${encodeURIComponent(g.id_trabajador)}/edit`} style={{ textDecoration: 'none' }}>
+                  <div className="alert-card warning">
+                    <div className="alert-card-patente">{g.nombre}</div>
+                    <div className="alert-card-vehicle" style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{g.rut}</div>
+                    <div className="alert-card-items">
+                      {g.items.map(item => (
+                        <div key={item.campo} className="alert-card-item">
+                          <span className="alert-card-item-name">{item.label}</span>
+                          <span className="badge badge-warning" style={{ fontSize: '0.7rem', padding: '2px 7px' }}>{item.daysLeft}d</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {alertasTrab60.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 10, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              📅 Vencen en 60 días — {alertasTrab60.length} doc(s)
+            </h3>
+            <div className="alert-grid">
+              {groupByWorker(alertasTrab60).map(g => (
+                <Link key={g.id_trabajador} href={`/workers/${encodeURIComponent(g.id_trabajador)}/edit`} style={{ textDecoration: 'none' }}>
+                  <div className="alert-card warning" style={{ borderLeftColor: 'var(--brand-primary)' }}>
+                    <div className="alert-card-patente">{g.nombre}</div>
+                    <div className="alert-card-vehicle" style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{g.rut}</div>
+                    <div className="alert-card-items">
+                      {g.items.map(item => (
+                        <div key={item.campo} className="alert-card-item">
+                          <span className="alert-card-item-name">{item.label}</span>
+                          <span className="badge badge-active" style={{ fontSize: '0.7rem', padding: '2px 7px' }}>{item.daysLeft}d</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {alertasTrabajadores.length === 0 && (
+          <div className="card" style={{ marginTop: 8 }}>
+            <div className="card-body empty-state">
+              <p style={{ color: 'var(--status-ok)', fontWeight: 600 }}>¡Trabajadores al día!</p>
               <p style={{ marginTop: 4 }}>No hay documentos vencidos ni por vencer en los próximos 60 días.</p>
             </div>
           </div>
@@ -295,6 +436,25 @@ function groupByVehicle(items: AlertItem[]) {
       })
     }
     map.get(item.vehicleId)!.items.push(item)
+  }
+  return Array.from(map.values())
+}
+
+import type { AlertaDocVenc } from '@/app/actions'
+
+function groupByWorker(items: AlertaDocVenc[]) {
+  const map = new Map<string, { id_trabajador: string; nombre: string; rut: string; cargo: string | null; items: AlertaDocVenc[] }>()
+  for (const item of items) {
+    if (!map.has(item.id_trabajador)) {
+      map.set(item.id_trabajador, {
+        id_trabajador: item.id_trabajador,
+        nombre: item.nombre,
+        rut: item.rut,
+        cargo: item.cargo,
+        items: [],
+      })
+    }
+    map.get(item.id_trabajador)!.items.push(item)
   }
   return Array.from(map.values())
 }

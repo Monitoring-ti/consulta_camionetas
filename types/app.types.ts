@@ -10,6 +10,36 @@ export type Inspector = Database['public']['Tables']['inspectors']['Row']
 export type InspectorInsert = Database['public']['Tables']['inspectors']['Insert']
 export type InspectorUpdate = Database['public']['Tables']['inspectors']['Update']
 
+// ─── Trabajadores — solo campos de documentos/vencimientos (no datos sensibles) ───
+export interface TrabajadorDocVenc {
+  id_trabajador: string
+  numero_identificacion: string   // RUT
+  nombre_1: string
+  nombre_2: string | null
+  apellido_paterno: string
+  apellido_materno: string | null
+  cargo: string | null
+  area_departamento: string | null
+  tipo_identificacion: string
+  // Documentos
+  vencimiento_licencia_conducir: string | null
+  vencimiento_examen_ocupacional: string | null
+  vencimiento_altura_geo: string | null
+  vencimiento_psicosensometrico: string | null
+  licencia_conducir_tipo: string | null
+  licencia_conducir_numero: string | null
+}
+
+export type DocVencPayload = Pick<
+  TrabajadorDocVenc,
+  | 'vencimiento_licencia_conducir'
+  | 'vencimiento_examen_ocupacional'
+  | 'vencimiento_altura_geo'
+  | 'vencimiento_psicosensometrico'
+  | 'licencia_conducir_tipo'
+  | 'licencia_conducir_numero'
+>
+
 // Estado de documento por vencimiento
 export type DocStatus = 'ok' | 'warning' | 'danger' | 'nodata'
 

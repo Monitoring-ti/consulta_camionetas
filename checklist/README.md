@@ -26,8 +26,10 @@ npm run dev                  # http://localhost:3000
 | `/check` | Acceso RUT + patente |
 | `/check/inspeccion` | Checklist |
 
+Ver `../README.md` para arquitectura de los 2 módulos.
+
 ## Deploy
 
-Root Directory Vercel: `checklist`
+Root Directory Vercel: **`checklist`**  
+Prod: https://monitoring-checklist.vercel.app
 
-Ver `../README.md` para arquitectura de los 2 módulos.

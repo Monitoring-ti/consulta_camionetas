@@ -1,14 +1,16 @@
 # Consulta Camionetas — Monitoring
 
-Dos módulos independientes. Una base de datos Supabase compartida.
+Dos módulos independientes. Repo: `git@github.com:Monitoring-ti/consulta_camionetas.git`
 
 ```
 consulta_camionetas/
-├── checklist/   ← Terreno: inspección ECF 4
-└── admin/       ← Administración: flota, workers, historial
+├── checklist/     ← Terreno (inspección ECF 4)
+├── app/ …         ← Administración (raíz del repo = módulo admin)
+├── package.json   ← admin
+└── README.md
 ```
 
-Repo: `git@github.com:Monitoring-ti/consulta_camionetas.git`
+Base de datos Supabase compartida.
 
 ---
 
@@ -17,61 +19,56 @@ Repo: `git@github.com:Monitoring-ti/consulta_camionetas.git`
 | | |
 |--|--|
 | Propósito | Inspección ECF 4 en terreno |
-| Acceso | RUT + patente (trabajadores / vehículos Monitoring) |
-| Local | `cd checklist && npm run dev` → http://localhost:3000 |
-| Responsive | Sí (móvil / tablet) |
-| Features | Combustible opcional, fotos opcionales (izq→trasera→der→frontal), hallazgos, firma, aceptación, Apto/No apto |
+| Acceso | RUT + patente |
+| Local | `cd checklist && npm run dev` → :3000 |
+| Features | Combustible opcional, fotos opcionales (izq→trasera→der→frontal), hallazgos, firma, aceptación, Apto/No apto, PWA |
 
 Rutas: `/check`, `/check/inspeccion`  
 **Sin** panel admin.
 
-Env (`checklist/.env.local`):
+Env: `checklist/.env.local` → `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`  
+SQL: `checklist/supabase/security.sql` + migración `nivel_combustible`
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-```
+### Deploy Vercel (checklist)
 
-SQL: `checklist/supabase/security.sql` + migración `nivel_combustible`.
+- Proyecto: `monitoring-checklist` (o similar)
+- **Root Directory: `checklist`**
+- Prod: https://monitoring-checklist.vercel.app
 
 ---
 
-## 2. Administración — `admin/`
+## 2. Administración — raíz del repo
 
 | | |
 |--|--|
 | Propósito | Flota, QR, workers/docs, inspecciones, dashboard |
-| Acceso | Login admin Monitoring (dominio / sesión protegida) |
-| Local | `cd admin && npm run dev` → http://localhost:3001 |
-| Features | Vehículos, trabajadores y vencimientos, historial de inspecciones (combustible + fotos) |
+| Acceso | Login admin Monitoring |
+| Local | `npm run dev` → :3000 (o `:3001`) |
+| Features | Vehículos, trabajadores y vencimientos, historial (combustible + fotos) |
 
-Rutas: `/login`, `/dashboard`, `/vehicles`, `/workers`, `/inspections`  
-**Sin** wizard de checklist.
+Rutas: `/login`, `/dashboard`, `/vehicles`, `/workers`, `/inspections`
 
-Env (`admin/.env.local`) — service role solo servidor:
+Env: `.env.local` con URL + **`SUPABASE_SERVICE_ROLE_KEY`** (solo servidor)
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=   # o publishable, según cliente SSR
-SUPABASE_SERVICE_ROLE_KEY=
+### Deploy Vercel (admin)
+
+- Proyecto: `monitoring-admin`
+- **Root Directory: `.`** (raíz)
+- Prod: https://monitoring-admin-sigma.vercel.app
+
+---
+
+## Setup rápido
+
+```bash
+# Admin
+npm install && npm run dev
+
+# Checklist
+cd checklist && npm install && npm run dev
 ```
 
----
+## Smoke
 
-## Deploy Vercel (2 proyectos)
-
-| Proyecto | Root Directory | App |
-|--|--|--|
-| Checklist | `checklist` | terreno |
-| Admin | `admin` | administración |
-
-No desplegar apps del monorepo legacy `Check_list_camionetas` (`monitoring-checklist`, `monitoring-check-admin`, etc.).
-
----
-
-## Orden recomendado de setup
-
-1. SQL combustible + security checklist en Supabase  
-2. `checklist`: env + deploy  
-3. `admin`: env (service role) + deploy  
-4. Smoke: RUT+patente → envío; login admin → ver inspección  
+1. Checklist: RUT + patente → completar → enviar  
+2. Admin: login → ver inspección con combustible  

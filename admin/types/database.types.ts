@@ -96,6 +96,8 @@ export interface Database {
           foto_trasera: string | null
           foto_lateral_der: string | null
           foto_lateral_izq: string | null
+          /** Opcional: 1/8 | 1/4 | 1/2 | 3/4 | FULL */
+          nivel_combustible: string | null
         }
         Insert: {
           id?: string
@@ -115,6 +117,7 @@ export interface Database {
           foto_trasera?: string | null
           foto_lateral_der?: string | null
           foto_lateral_izq?: string | null
+          nivel_combustible?: string | null
         }
         Update: Partial<Database['public']['Tables']['monitoring_inspections']['Insert']>
       }

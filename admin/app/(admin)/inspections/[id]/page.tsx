@@ -35,12 +35,12 @@ export default async function InspectionDetailPage({ params }: { params: Promise
   const totalHallazgos = details.filter(d => !d.is_good).length
   const hallazgosBloqueantes = details.filter(d => !d.is_good && d.is_blocking).length
 
-  // Fotos generales
+  // Fotos generales (orden campo: izquierda → trasera → derecha → frontal)
   const fotosGenerales = [
-    { url: ins.foto_frontal, label: 'Frontal' },
+    { url: ins.foto_lateral_izq, label: 'Lateral Izquierdo' },
     { url: ins.foto_trasera, label: 'Trasera' },
     { url: ins.foto_lateral_der, label: 'Lateral Derecho' },
-    { url: ins.foto_lateral_izq, label: 'Lateral Izquierdo' },
+    { url: ins.foto_frontal, label: 'Frontal' },
   ].filter(f => f.url)
 
   return (
@@ -77,6 +77,7 @@ export default async function InspectionDetailPage({ params }: { params: Promise
                   { label: 'Fecha', value: formatDate(ins.fecha) },
                   { label: 'Hora', value: ins.hora?.slice(0, 5) },
                   { label: 'Kilometraje', value: `${ins.kilometraje?.toLocaleString('es-CL')} km` },
+                  { label: 'Combustible', value: ins.nivel_combustible ?? '—' },
                   { label: 'Observaciones', value: ins.observaciones ?? '—' },
                 ].map(item => (
                   <div key={item.label}>

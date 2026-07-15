@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Consulta Camionetas — Monitoring
 
-## Getting Started
+Dos módulos independientes. Una base de datos Supabase compartida.
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+consulta_camionetas/
+├── checklist/   ← Terreno: inspección ECF 4
+└── admin/       ← Administración: flota, workers, historial
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Repo: `git@github.com:Monitoring-ti/consulta_camionetas.git`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 1. Checklist (terreno) — `checklist/`
 
-## Learn More
+| | |
+|--|--|
+| Propósito | Inspección ECF 4 en terreno |
+| Acceso | RUT + patente (trabajadores / vehículos Monitoring) |
+| Local | `cd checklist && npm run dev` → http://localhost:3000 |
+| Responsive | Sí (móvil / tablet) |
+| Features | Combustible opcional, fotos opcionales (izq→trasera→der→frontal), hallazgos, firma, aceptación, Apto/No apto |
 
-To learn more about Next.js, take a look at the following resources:
+Rutas: `/check`, `/check/inspeccion`  
+**Sin** panel admin.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Env (`checklist/.env.local`):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+```
 
-## Deploy on Vercel
+SQL: `checklist/supabase/security.sql` + migración `nivel_combustible`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 2. Administración — `admin/`
+
+| | |
+|--|--|
+| Propósito | Flota, QR, workers/docs, inspecciones, dashboard |
+| Acceso | Login admin Monitoring (dominio / sesión protegida) |
+| Local | `cd admin && npm run dev` → http://localhost:3001 |
+| Features | Vehículos, trabajadores y vencimientos, historial de inspecciones (combustible + fotos) |
+
+Rutas: `/login`, `/dashboard`, `/vehicles`, `/workers`, `/inspections`  
+**Sin** wizard de checklist.
+
+Env (`admin/.env.local`) — service role solo servidor:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=   # o publishable, según cliente SSR
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+---
+
+## Deploy Vercel (2 proyectos)
+
+| Proyecto | Root Directory | App |
+|--|--|--|
+| Checklist | `checklist` | terreno |
+| Admin | `admin` | administración |
+
+No desplegar apps del monorepo legacy `Check_list_camionetas` (`monitoring-checklist`, `monitoring-check-admin`, etc.).
+
+---
+
+## Orden recomendado de setup
+
+1. SQL combustible + security checklist en Supabase  
+2. `checklist`: env + deploy  
+3. `admin`: env (service role) + deploy  
+4. Smoke: RUT+patente → envío; login admin → ver inspección  

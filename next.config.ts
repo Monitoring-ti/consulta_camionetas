@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Módulo checklist es una app aparte (carpeta hermana)
+  pageExtensions: ["tsx", "ts", "jsx", "js"],
+
   // Optimizaciones para producción
   compress: true,
 

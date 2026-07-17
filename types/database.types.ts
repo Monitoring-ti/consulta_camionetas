@@ -85,6 +85,10 @@ export interface Database {
           hora: string
           responsable_inspeccion: string
           cargo: string
+          /** RUT del responsable (persistido desde sesión de campo, si existe la columna) */
+          responsable_rut: string | null
+          /** FK opcional a trabajadores.id_trabajador */
+          trabajador_id: string | null
           patente: string
           kilometraje: number
           marca_modelo: string
@@ -106,6 +110,8 @@ export interface Database {
           hora: string
           responsable_inspeccion: string
           cargo: string
+          responsable_rut?: string | null
+          trabajador_id?: string | null
           patente: string
           kilometraje: number
           marca_modelo: string

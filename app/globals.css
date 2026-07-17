@@ -823,19 +823,35 @@ tbody td.primary {
   gap: 12px;
 }
 
+.photos-grid--vehicle {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
 .photo-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
   aspect-ratio: 4/3;
   border-radius: var(--radius-sm);
   overflow: hidden;
   border: 1px solid var(--border);
   background: var(--bg-surface-2);
   cursor: pointer;
-  transition: transform 0.15s;
+  transition: transform 0.15s, box-shadow 0.15s;
+  padding: 0;
+  color: inherit;
+  font: inherit;
 }
 
 .photo-thumb:hover {
   transform: scale(1.02);
   box-shadow: var(--shadow);
+}
+
+.photo-thumb:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
 }
 
 .photo-thumb img {
@@ -844,11 +860,97 @@ tbody td.primary {
   object-fit: cover;
 }
 
+.photo-thumb--sm {
+  width: 72px;
+  min-width: 72px;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+}
+
+.photo-thumb--signature {
+  aspect-ratio: 16/7;
+  background: #f8fafc;
+  border-color: var(--border);
+}
+
+.photo-thumb--signature img {
+  object-fit: contain;
+  padding: 8px 12px;
+}
+
+.photo-thumb--empty {
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface-3);
+  border-style: dashed;
+}
+
+.photo-thumb--empty:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.photo-empty-msg {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px;
+}
+
+.photo-zoom-hint {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(11, 15, 26, 0.72);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.photo-thumb:hover .photo-zoom-hint,
+.photo-thumb:focus-visible .photo-zoom-hint {
+  opacity: 1;
+}
+
 .photo-label {
   font-size: 0.72rem;
   color: var(--text-muted);
   text-align: center;
-  margin-top: 4px;
+  margin-top: 6px;
+  line-height: 1.3;
+}
+
+.checklist-photo {
+  flex-shrink: 0;
+}
+
+.media-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.inspection-top-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 900px) {
+  .inspection-top-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─── Empty State ─── */
@@ -1057,7 +1159,7 @@ tbody td.primary {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(0,0,0,0.88);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -1066,12 +1168,32 @@ tbody td.primary {
   cursor: pointer;
 }
 
+.modal-img-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: min(92vw, 960px);
+  cursor: default;
+}
+
 .modal-img {
-  max-width: min(90vw, 800px);
-  max-height: 85vh;
+  max-width: 100%;
+  max-height: 80vh;
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
-  cursor: default;
+  background: #fff;
+  object-fit: contain;
+}
+
+.modal-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }
 
 /* ─── Responsive ─── */
@@ -1097,5 +1219,159 @@ tbody td.primary {
 
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ─── Inspection detail actions ─── */
+.inspection-detail-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.print-only {
+  display: none;
+}
+
+/* ─── Print report ─── */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  html, body {
+    background: #fff !important;
+    color: #0f172a !important;
+    font-size: 11pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sidebar,
+  .no-print,
+  .photo-zoom-hint,
+  .modal-overlay {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .app-shell {
+    display: block;
+    min-height: auto;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    min-height: auto;
+  }
+
+  .page-header,
+  .page-body {
+    padding: 0 !important;
+  }
+
+  .print-report-header {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #0f172a;
+  }
+
+  .print-report-brand {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #475569;
+  }
+
+  .print-report-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 2px;
+  }
+
+  .page-title,
+  .page-subtitle,
+  .card-title,
+  .checklist-label,
+  .checklist-section-title,
+  .kpi-label,
+  .kpi-value,
+  .kpi-sub,
+  .photo-label,
+  .user-email {
+    color: #0f172a !important;
+  }
+
+  .page-subtitle,
+  .kpi-sub,
+  .photo-label,
+  .checklist-desc {
+    color: #475569 !important;
+  }
+
+  .card,
+  .kpi-card {
+    background: #fff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .card-header {
+    border-bottom-color: #e2e8f0 !important;
+  }
+
+  .checklist-section-title,
+  .checklist-item {
+    border-bottom-color: #e2e8f0 !important;
+  }
+
+  .badge {
+    border: 1px solid currentColor;
+  }
+
+  .photo-thumb {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    cursor: default;
+    box-shadow: none !important;
+    transform: none !important;
+    border-color: #cbd5e1 !important;
+    background: #f8fafc !important;
+  }
+
+  .photo-thumb--signature {
+    background: #fff !important;
+  }
+
+  .photo-thumb img {
+    max-height: 180px;
+  }
+
+  .photo-thumb--sm img {
+    max-height: 72px;
+  }
+
+  .inspection-top-grid {
+    grid-template-columns: 2fr 1fr;
+    gap: 12px;
+  }
+
+  .photos-grid,
+  .photos-grid--vehicle {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
   }
 }

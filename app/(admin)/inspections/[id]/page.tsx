@@ -1,31 +1,55 @@
-import { createClient } from '@/lib/supabase/server'
+import { fetchInspectionById } from '@/app/actions'
 import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/dates'
-import { PhotoViewer } from '@/components/inspections/PhotoViewer'
+import { formatRut } from '@/lib/utils/formatters'
+import { PhotoViewer, PhotoPlaceholder } from '@/components/inspections/PhotoViewer'
+import PrintReportButton from '@/components/inspections/PrintReportButton'
 import Link from 'next/link'
-import type { Inspection, InspectionDetail } from '@/types/app.types'
+import type { InspectionDetail } from '@/types/app.types'
 
-export default async function InspectionDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const VEHICLE_PHOTO_SLOTS = [
+  { key: 'foto_lateral_izq' as const, label: 'Lateral Izquierdo' },
+  { key: 'foto_trasera' as const, label: 'Trasera' },
+  { key: 'foto_lateral_der' as const, label: 'Lateral Derecho' },
+  { key: 'foto_frontal' as const, label: 'Frontal' },
+]
+
+const FILTER_KEYS = ['vehicle', 'resultado', 'desde', 'hasta'] as const
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value[0]
+  return value
+}
+
+function buildInspectionsHref(
+  searchParams: Record<string, string | string[] | undefined>,
+): string {
+  const qs = new URLSearchParams()
+  for (const key of FILTER_KEYS) {
+    const value = firstParam(searchParams[key])
+    if (value) qs.set(key, value)
+  }
+  const query = qs.toString()
+  return query ? `/inspections?${query}` : '/inspections'
+}
+
+export default async function InspectionDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const { id } = await params
-  const supabase = await createClient()
+  const filters = await searchParams
+  const backHref = buildInspectionsHref(filters)
+  const full = await fetchInspectionById(id)
 
-  const [{ data: insData, error }, { data: detailsData }] = await Promise.all([
-    supabase.from('monitoring_inspections').select('*').eq('id', id).single(),
-    supabase
-      .from('monitoring_inspection_details')
-      .select('*')
-      .eq('inspection_id', id)
-      .order('seccion')
-      .order('item_key'),
-  ])
+  if (!full) return notFound()
 
-  if (error || !insData) return notFound()
-
-  const ins = insData as Inspection
-  const details: InspectionDetail[] = (detailsData as InspectionDetail[]) ?? []
+  const { inspection: ins, details } = full
   const isApto = ins.resultado?.toLowerCase().includes('apto') && !ins.resultado?.toLowerCase().includes('no')
 
-  // Agrupar por sección
   const sections = details.reduce<Record<string, InspectionDetail[]>>((acc, d) => {
     if (!acc[d.seccion]) acc[d.seccion] = []
     acc[d.seccion].push(d)
@@ -34,37 +58,60 @@ export default async function InspectionDetailPage({ params }: { params: Promise
 
   const totalHallazgos = details.filter(d => !d.is_good).length
   const hallazgosBloqueantes = details.filter(d => !d.is_good && d.is_blocking).length
-
-  // Fotos generales (orden campo: izquierda → trasera → derecha → frontal)
-  const fotosGenerales = [
-    { url: ins.foto_lateral_izq, label: 'Lateral Izquierdo' },
-    { url: ins.foto_trasera, label: 'Trasera' },
-    { url: ins.foto_lateral_der, label: 'Lateral Derecho' },
-    { url: ins.foto_frontal, label: 'Frontal' },
-  ].filter(f => f.url)
+  const fotosApoyoItems = details.filter(d => d.foto_url)
+  const hallazgosConFoto = fotosApoyoItems.filter(d => !d.is_good)
+  const otrasFotosApoyo = fotosApoyoItems.filter(d => d.is_good)
+  const vehiclePhotosPresent = VEHICLE_PHOTO_SLOTS.filter(s => ins[s.key]).length
+  const hasFirma = Boolean(ins.firma_url)
 
   return (
-    <>
+    <div className="inspection-report">
       <div className="page-header">
-        <div className="breadcrumb">
-          <Link href="/inspections">Inspecciones</Link>
+        <div className="breadcrumb no-print">
+          <Link href={backHref}>Inspecciones</Link>
           <span className="breadcrumb-sep">/</span>
           <span>{ins.patente} — {formatDate(ins.fecha)}</span>
+        </div>
+        <div className="print-only print-report-header">
+          <div className="print-report-brand">MAT Monitoring</div>
+          <div className="print-report-title">Reporte de inspección</div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h1 className="page-title">Inspección — {ins.patente}</h1>
             <p className="page-subtitle">{ins.marca_modelo} · {formatDate(ins.fecha)} a las {ins.hora?.slice(0, 5)}</p>
+            <div className="media-badges no-print" style={{ marginTop: 10 }}>
+              <span className={`badge ${hasFirma ? 'badge-ok' : 'badge-nodata'}`}>
+                {hasFirma ? 'Firma' : 'Sin firma'}
+              </span>
+              <span className={`badge ${vehiclePhotosPresent > 0 ? 'badge-ok' : 'badge-nodata'}`}>
+                Apoyo {vehiclePhotosPresent}/4
+              </span>
+              {hallazgosConFoto.length > 0 && (
+                <span className="badge badge-warning">
+                  {hallazgosConFoto.length} foto{hallazgosConFoto.length !== 1 ? 's' : ''} de hallazgo
+                </span>
+              )}
+            </div>
           </div>
-          <span className={`badge ${isApto ? 'badge-apto' : 'badge-no-apto'}`} style={{ padding: '8px 18px', fontSize: '0.9rem' }}>
-            {ins.resultado}
-          </span>
+          <div className="inspection-detail-actions">
+            <span className={`badge ${isApto ? 'badge-apto' : 'badge-no-apto'}`} style={{ padding: '8px 18px', fontSize: '0.9rem' }}>
+              {ins.resultado}
+            </span>
+            <Link href={backHref} className="btn btn-secondary no-print">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              Volver
+            </Link>
+            <PrintReportButton />
+          </div>
         </div>
       </div>
 
       <div className="page-body">
-        {/* Cabecera */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 24 }}>
+        <div className="inspection-top-grid">
           <div className="card">
             <div className="card-header"><span className="card-title">Datos de la Inspección</span></div>
             <div className="card-body">
@@ -72,8 +119,9 @@ export default async function InspectionDetailPage({ params }: { params: Promise
                 {[
                   { label: 'Patente', value: ins.patente },
                   { label: 'Vehículo', value: `${ins.marca_modelo} ${ins.anio}` },
-                  { label: 'Responsable', value: ins.responsable_inspeccion },
-                  { label: 'Cargo', value: ins.cargo },
+                  { label: 'Realizada por', value: ins.responsable_inspeccion },
+                  { label: 'RUT', value: ins.responsable_rut ? formatRut(ins.responsable_rut) : '—' },
+                  { label: 'Cargo', value: ins.cargo || '—' },
                   { label: 'Fecha', value: formatDate(ins.fecha) },
                   { label: 'Hora', value: ins.hora?.slice(0, 5) },
                   { label: 'Kilometraje', value: `${ins.kilometraje?.toLocaleString('es-CL')} km` },
@@ -82,7 +130,12 @@ export default async function InspectionDetailPage({ params }: { params: Promise
                 ].map(item => (
                   <div key={item.label}>
                     <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>{item.label}</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>{item.value}</div>
+                    <div style={{
+                      fontSize: '0.9rem',
+                      color: 'var(--text-primary)',
+                      fontWeight: 500,
+                      fontFamily: item.label === 'RUT' ? 'ui-monospace, monospace' : undefined,
+                    }}>{item.value}</div>
                   </div>
                 ))}
               </div>
@@ -90,7 +143,6 @@ export default async function InspectionDetailPage({ params }: { params: Promise
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* KPIs */}
             <div className="kpi-card danger">
               <div className="kpi-label">Hallazgos</div>
               <div className="kpi-value">{totalHallazgos}</div>
@@ -103,29 +155,103 @@ export default async function InspectionDetailPage({ params }: { params: Promise
                 <div className="kpi-sub">requieren atención inmediata</div>
               </div>
             )}
-            {/* Firma */}
-            {ins.firma_url && (
-              <div className="card">
-                <div className="card-header"><span className="card-title" style={{ fontSize: '0.8rem' }}>Firma</span></div>
-                <div className="card-body" style={{ padding: 12, textAlign: 'center' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={ins.firma_url} alt="Firma del inspector" style={{ maxHeight: 80, margin: '0 auto', borderRadius: 4 }} />
-                </div>
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title" style={{ fontSize: '0.8rem' }}>Firma del inspector</span>
               </div>
-            )}
+              <div className="card-body" style={{ padding: 12 }}>
+                {hasFirma ? (
+                  <PhotoViewer
+                    src={ins.firma_url!}
+                    alt={`Firma — ${ins.responsable_inspeccion}`}
+                    variant="signature"
+                  />
+                ) : (
+                  <div className="photo-thumb photo-thumb--signature photo-thumb--empty">
+                    <span className="photo-empty-msg">Sin firma registrada</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Fotos generales */}
-        {fotosGenerales.length > 0 && (
+        {/* Imágenes de apoyo — 4 ángulos generales del vehículo */}
+        <div className="card" style={{ marginBottom: 24 }}>
+          <div className="card-header">
+            <span className="card-title">Imágenes de apoyo</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              {vehiclePhotosPresent} de 4 ángulos del vehículo
+            </span>
+          </div>
+          <div className="card-body">
+            <p className="no-print" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 14 }}>
+              Fotos generales capturadas durante la inspección (lateral, trasera y frontal).
+            </p>
+            <div className="photos-grid photos-grid--vehicle">
+              {VEHICLE_PHOTO_SLOTS.map(slot => {
+                const url = ins[slot.key]
+                if (url) {
+                  return (
+                    <div key={slot.key}>
+                      <PhotoViewer src={url} alt={`Apoyo: ${slot.label}`} label={slot.label} />
+                    </div>
+                  )
+                }
+                return <PhotoPlaceholder key={slot.key} label={slot.label} />
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Evidencia de hallazgos */}
+        {hallazgosConFoto.length > 0 && (
           <div className="card" style={{ marginBottom: 24 }}>
-            <div className="card-header"><span className="card-title">Fotos del Vehículo</span></div>
+            <div className="card-header">
+              <span className="card-title">Fotos de hallazgos</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {hallazgosConFoto.length} evidencia{hallazgosConFoto.length !== 1 ? 's' : ''}
+              </span>
+            </div>
             <div className="card-body">
               <div className="photos-grid">
-                {fotosGenerales.map(foto => (
-                  <div key={foto.label}>
-                    <PhotoViewer src={foto.url!} alt={foto.label} />
-                    <div className="photo-label">{foto.label}</div>
+                {hallazgosConFoto.map(item => (
+                  <div key={item.id}>
+                    <PhotoViewer
+                      src={item.foto_url!}
+                      alt={`Hallazgo: ${item.item_label}`}
+                      label={item.item_label}
+                    />
+                    {item.is_blocking && (
+                      <div className="photo-label" style={{ color: 'var(--status-danger)', fontWeight: 600 }}>
+                        Bloqueante
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Otras fotos adjuntas a ítems OK (si existen) */}
+        {otrasFotosApoyo.length > 0 && (
+          <div className="card" style={{ marginBottom: 24 }}>
+            <div className="card-header">
+              <span className="card-title">Otras imágenes de apoyo</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {otrasFotosApoyo.length} adjuntas a ítems OK
+              </span>
+            </div>
+            <div className="card-body">
+              <div className="photos-grid">
+                {otrasFotosApoyo.map(item => (
+                  <div key={item.id}>
+                    <PhotoViewer
+                      src={item.foto_url!}
+                      alt={`Apoyo: ${item.item_label}`}
+                      label={item.item_label}
+                    />
                   </div>
                 ))}
               </div>
@@ -159,20 +285,28 @@ export default async function InspectionDetailPage({ params }: { params: Promise
                           </svg>
                         )}
                       </div>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <span className="checklist-label">{item.item_label}</span>
                           {item.is_blocking && !item.is_good && (
-                            <span className="checklist-blocking">⚡ BLOQUEANTE</span>
+                            <span className="checklist-blocking">BLOQUEANTE</span>
                           )}
                         </div>
                         {item.descripcion && (
                           <div className="checklist-desc">{item.descripcion}</div>
                         )}
                       </div>
-                      {item.foto_url && (
-                        <PhotoViewer src={item.foto_url} alt={`Foto: ${item.item_label}`} />
-                      )}
+                      {item.foto_url ? (
+                        <div className="checklist-photo">
+                          <PhotoViewer
+                            src={item.foto_url}
+                            alt={`Foto: ${item.item_label}`}
+                            variant="sm"
+                          />
+                        </div>
+                      ) : !item.is_good ? (
+                        <span className="badge badge-nodata">Sin foto</span>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -181,7 +315,6 @@ export default async function InspectionDetailPage({ params }: { params: Promise
           </div>
         )}
 
-        {/* Fallback: sin detalles */}
         {details.length === 0 && (
           <div className="card">
             <div className="card-body empty-state">
@@ -190,6 +323,6 @@ export default async function InspectionDetailPage({ params }: { params: Promise
           </div>
         )}
       </div>
-    </>
+    </div>
   )
 }

@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
-import { fetchAlertasVencimiento } from '@/app/actions'
+import { fetchAlertasVencimiento, fetchVehicles, fetchInspectionResultCounts } from '@/app/actions'
 import { getDocStatus, daysUntil } from '@/lib/utils/dates'
 import type { Vehicle } from '@/types/app.types'
 import Link from 'next/link'
@@ -34,22 +33,14 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-
-  // Vehículos activos
-  const { data: vehicles } = await supabase
-    .from('vehicles')
-    .select('*')
-    .eq('is_active', true)
-    .order('patente')
-
-  // Inspecciones último mes
   const oneMonthAgo = new Date()
   oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-  const { data: recentInspections } = await supabase
-    .from('monitoring_inspections')
-    .select('id, resultado')
-    .gte('fecha', oneMonthAgo.toISOString().split('T')[0])
+  const oneMonthAgoStr = oneMonthAgo.toISOString().split('T')[0]
+
+  const [vehicles, inspectionCounts] = await Promise.all([
+    fetchVehicles(),
+    fetchInspectionResultCounts(oneMonthAgoStr),
+  ])
 
   // Alertas de vencimiento de documentos de trabajadores
   const alertasTrabajadores = await fetchAlertasVencimiento()
@@ -59,12 +50,12 @@ export default async function DashboardPage() {
   const alertasTrab60 = alertasTrabajadores.filter(a => a.daysLeft > 30 && a.daysLeft <= 60)
 
   // Calcular KPIs
-  const vehicleList = (vehicles as Vehicle[] | null) ?? []
+  const vehicleList = vehicles.filter(v => v.is_active !== false)
   const vehiculosActivos = vehicleList.length
-  const recentList = (recentInspections as { id: string; resultado: string }[] | null) ?? []
-  const inspeccionesUltimoMes = recentList.length
-  const aptos = recentList.filter(i => i.resultado?.toLowerCase().includes('apto') && !i.resultado?.toLowerCase().includes('no')).length
-  const porcentajeAptos = inspeccionesUltimoMes > 0 ? Math.round((aptos / inspeccionesUltimoMes) * 100) : 0
+  const inspeccionesUltimoMes = inspectionCounts.total
+  const porcentajeAptos = inspeccionesUltimoMes > 0
+    ? Math.round((inspectionCounts.aptos / inspeccionesUltimoMes) * 100)
+    : 0
   const trabajadoresConVenc = new Set(alertasTrabVencidas.map(a => a.id_trabajador)).size
 
   // Calcular alertas

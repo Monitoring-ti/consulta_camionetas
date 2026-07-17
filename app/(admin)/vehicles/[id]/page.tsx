@@ -1,8 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+import { fetchVehicleById, fetchInspectionsByPatente } from '@/app/actions'
 import { notFound } from 'next/navigation'
 import { getDocStatus, formatDate } from '@/lib/utils/dates'
+import { formatRut } from '@/lib/utils/formatters'
 import Link from 'next/link'
-import type { Vehicle, Inspection } from '@/types/app.types'
+import type { Vehicle } from '@/types/app.types'
 import VehicleQR from '@/components/vehicles/VehicleQR'
 
 const DOC_FIELDS: { key: keyof Vehicle; label: string; linkKey?: keyof Vehicle }[] = [
@@ -16,30 +17,11 @@ const DOC_FIELDS: { key: keyof Vehicle; label: string; linkKey?: keyof Vehicle }
 
 export default async function VehicleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
+  const vehicle = await fetchVehicleById(id)
 
-  const [{ data: vehicleData, error }, { data: inspections }] = await Promise.all([
-    supabase.from('vehicles').select('*').eq('id', id).single(),
-    supabase
-      .from('monitoring_inspections')
-      .select('*')
-      .eq('patente', '')  // se llenará abajo con la patente real
-      .limit(0),
-  ])
+  if (!vehicle) return notFound()
 
-  if (error || !vehicleData) return notFound()
-  const vehicle = vehicleData as Vehicle
-
-  // Cargar inspecciones por patente
-  const { data: inspeccionesData } = await supabase
-    .from('monitoring_inspections')
-    .select('*')
-    .eq('patente', vehicle.patente)
-    .order('fecha', { ascending: false })
-    .order('hora', { ascending: false })
-    .limit(20)
-
-  const inspeccionesList: Inspection[] = (inspeccionesData as Inspection[]) ?? []
+  const inspeccionesList = await fetchInspectionsByPatente(vehicle.patente, 20)
 
   return (
     <>
@@ -144,7 +126,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
                 <tr>
                   <th>Fecha</th>
                   <th>Hora</th>
-                  <th>Responsable</th>
+                  <th>Realizada por</th>
                   <th>Km</th>
                   <th>Resultado</th>
                   <th></th>
@@ -166,7 +148,14 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
                       <tr key={ins.id}>
                         <td className="primary">{formatDate(ins.fecha)}</td>
                         <td>{ins.hora?.slice(0, 5)}</td>
-                        <td>{ins.responsable_inspeccion}</td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{ins.responsable_inspeccion || '—'}</div>
+                          {ins.responsable_rut && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'ui-monospace, monospace' }}>
+                              {formatRut(ins.responsable_rut)}
+                            </div>
+                          )}
+                        </td>
                         <td>{ins.kilometraje?.toLocaleString('es-CL')}</td>
                         <td>
                           <span className={`badge ${isApto ? 'badge-apto' : 'badge-no-apto'}`}>

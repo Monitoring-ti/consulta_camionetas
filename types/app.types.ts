@@ -10,6 +10,17 @@ export type Inspector = Database['public']['Tables']['inspectors']['Row']
 export type InspectorInsert = Database['public']['Tables']['inspectors']['Insert']
 export type InspectorUpdate = Database['public']['Tables']['inspectors']['Update']
 
+/** Inspección enriquecida para admin (RUT resuelto desde sesión/trabajador si falta en fila) */
+export type InspectionWithInspector = Inspection & {
+  responsable_rut: string | null
+  trabajador_id: string | null
+}
+
+export interface InspectionFull {
+  inspection: InspectionWithInspector
+  details: InspectionDetail[]
+}
+
 // ─── Trabajadores — solo campos de documentos/vencimientos (no datos sensibles) ───
 export interface TrabajadorDocVenc {
   id_trabajador: string

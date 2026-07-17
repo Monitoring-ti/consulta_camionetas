@@ -146,6 +146,11 @@ $$;
 
 -- ─── RPC: Enviar inspección ─────────────────────────────────────────────────
 
+-- Identidad del inspector (RUT / trabajador) — idempotente
+ALTER TABLE public.monitoring_inspections
+  ADD COLUMN IF NOT EXISTS responsable_rut text,
+  ADD COLUMN IF NOT EXISTS trabajador_id uuid REFERENCES public.trabajadores(id_trabajador);
+
 CREATE OR REPLACE FUNCTION public.check_submit_inspection(
   p_session_token uuid,
   p_payload jsonb
@@ -190,7 +195,7 @@ BEGIN
     fecha, hora, responsable_inspeccion, cargo, patente,
     kilometraje, marca_modelo, anio, observaciones, resultado,
     firma_url, foto_frontal, foto_trasera, foto_lateral_der, foto_lateral_izq,
-    nivel_combustible
+    nivel_combustible, responsable_rut, trabajador_id
   ) VALUES (
     (p_payload->>'fecha')::date,
     (p_payload->>'hora')::time,
@@ -207,7 +212,12 @@ BEGIN
     nullif(p_payload->>'foto_trasera', ''),
     nullif(p_payload->>'foto_lateral_der', ''),
     nullif(p_payload->>'foto_lateral_izq', ''),
-    nullif(p_payload->>'nivel_combustible', '')
+    nullif(p_payload->>'nivel_combustible', ''),
+    coalesce(nullif(p_payload->>'responsable_rut', ''), v_sess.rut),
+    coalesce(
+      nullif(p_payload->>'trabajador_id', '')::uuid,
+      v_sess.trabajador_id
+    )
   )
   RETURNING id INTO v_insp_id;
 

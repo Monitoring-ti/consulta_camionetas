@@ -1,30 +1,51 @@
-import { createClient } from '@/lib/supabase/server'
+import {
+  fetchInspections,
+  fetchVehicles,
+} from '@/app/actions'
 import { formatDate } from '@/lib/utils/dates'
+import { formatRut } from '@/lib/utils/formatters'
 import Link from 'next/link'
-import type { Inspection } from '@/types/app.types'
+import type { InspectionWithInspector } from '@/types/app.types'
+
+function mediaCounts(ins: InspectionWithInspector) {
+  const photos = [
+    ins.foto_frontal,
+    ins.foto_trasera,
+    ins.foto_lateral_der,
+    ins.foto_lateral_izq,
+  ].filter(Boolean).length
+  return { hasFirma: Boolean(ins.firma_url), photos }
+}
+
+function detailHref(
+  id: string,
+  filters: { vehicle?: string; resultado?: string; desde?: string; hasta?: string },
+) {
+  const qs = new URLSearchParams()
+  if (filters.vehicle) qs.set('vehicle', filters.vehicle)
+  if (filters.resultado) qs.set('resultado', filters.resultado)
+  if (filters.desde) qs.set('desde', filters.desde)
+  if (filters.hasta) qs.set('hasta', filters.hasta)
+  const query = qs.toString()
+  return query ? `/inspections/${id}?${query}` : `/inspections/${id}`
+}
 
 export default async function InspectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ patente?: string; resultado?: string; desde?: string; hasta?: string }>
+  searchParams: Promise<{ vehicle?: string; resultado?: string; desde?: string; hasta?: string }>
 }) {
   const params = await searchParams
-  const supabase = await createClient()
 
-  let query = supabase
-    .from('monitoring_inspections')
-    .select('*')
-    .order('fecha', { ascending: false })
-    .order('hora', { ascending: false })
-    .limit(200)
-
-  if (params.patente) query = query.ilike('patente', `%${params.patente}%`)
-  if (params.resultado) query = query.ilike('resultado', `%${params.resultado}%`)
-  if (params.desde) query = query.gte('fecha', params.desde)
-  if (params.hasta) query = query.lte('fecha', params.hasta)
-
-  const { data, error } = await query
-  const inspections: Inspection[] = (data as Inspection[]) ?? []
+  const [{ data: inspections, error }, vehicleList] = await Promise.all([
+    fetchInspections({
+      vehicle: params.vehicle,
+      resultado: params.resultado,
+      desde: params.desde,
+      hasta: params.hasta,
+    }),
+    fetchVehicles(),
+  ])
 
   return (
     <>
@@ -34,20 +55,15 @@ export default async function InspectionsPage({
       </div>
 
       <div className="page-body">
-        {/* Filtros */}
         <form method="GET" className="filters-bar" style={{ marginBottom: 20 }}>
-          <div className="search-input-wrapper">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              name="patente"
-              className="form-input"
-              placeholder="Buscar patente…"
-              defaultValue={params.patente ?? ''}
-              style={{ minWidth: 160 }}
-            />
-          </div>
+          <select name="vehicle" className="form-select" defaultValue={params.vehicle ?? ''} style={{ minWidth: 220 }}>
+            <option value="">Todos los vehículos</option>
+            {vehicleList.map(v => (
+              <option key={v.patente} value={v.patente}>
+                {v.patente} — {v.marca} {v.modelo}
+              </option>
+            ))}
+          </select>
           <select name="resultado" className="form-select" defaultValue={params.resultado ?? ''}>
             <option value="">Todos los resultados</option>
             <option value="Apto">Apto</option>
@@ -60,7 +76,7 @@ export default async function InspectionsPage({
         </form>
 
         {error && (
-          <div className="login-error" style={{ marginBottom: 16 }}>{error.message}</div>
+          <div className="login-error" style={{ marginBottom: 16 }}>{error}</div>
         )}
 
         <div className="card">
@@ -72,8 +88,9 @@ export default async function InspectionsPage({
                   <th>Hora</th>
                   <th>Patente</th>
                   <th>Vehículo</th>
-                  <th>Responsable</th>
+                  <th>Realizada por</th>
                   <th>Km</th>
+                  <th>Evidencia</th>
                   <th>Resultado</th>
                   <th></th>
                 </tr>
@@ -81,7 +98,7 @@ export default async function InspectionsPage({
               <tbody>
                 {inspections.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <div className="empty-state">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
@@ -93,21 +110,44 @@ export default async function InspectionsPage({
                 ) : (
                   inspections.map(ins => {
                     const isApto = ins.resultado?.toLowerCase().includes('apto') && !ins.resultado?.toLowerCase().includes('no')
+                    const media = mediaCounts(ins)
                     return (
-                      <tr key={ins.id} onClick={() => window.location.href = `/inspections/${ins.id}`}>
+                      <tr key={ins.id}>
                         <td className="primary">{formatDate(ins.fecha)}</td>
                         <td>{ins.hora?.slice(0, 5)}</td>
                         <td className="primary" style={{ fontWeight: 700, letterSpacing: '0.05em' }}>{ins.patente}</td>
                         <td>{ins.marca_modelo}</td>
-                        <td>{ins.responsable_inspeccion}</td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{ins.responsable_inspeccion || '—'}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'ui-monospace, monospace' }}>
+                            {ins.responsable_rut ? formatRut(ins.responsable_rut) : 'Sin RUT'}
+                            {ins.cargo ? ` · ${ins.cargo}` : ''}
+                          </div>
+                        </td>
                         <td>{ins.kilometraje?.toLocaleString('es-CL')}</td>
+                        <td>
+                          <div className="media-badges">
+                            <span
+                              className={`badge ${media.hasFirma ? 'badge-ok' : 'badge-nodata'}`}
+                              title={media.hasFirma ? 'Firma registrada' : 'Sin firma'}
+                            >
+                              Firma
+                            </span>
+                            <span
+                              className={`badge ${media.photos > 0 ? 'badge-ok' : 'badge-nodata'}`}
+                              title={`${media.photos} de 4 imágenes de apoyo`}
+                            >
+                              {media.photos}/4 apoyo
+                            </span>
+                          </div>
+                        </td>
                         <td>
                           <span className={`badge ${isApto ? 'badge-apto' : 'badge-no-apto'}`}>
                             {ins.resultado}
                           </span>
                         </td>
-                        <td onClick={e => e.stopPropagation()}>
-                          <Link href={`/inspections/${ins.id}`} className="btn btn-secondary btn-sm">
+                        <td>
+                          <Link href={detailHref(ins.id, params)} className="btn btn-secondary btn-sm">
                             Ver
                           </Link>
                         </td>

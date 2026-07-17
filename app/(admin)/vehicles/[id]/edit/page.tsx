@@ -1,22 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+import { fetchVehicleById } from '@/app/actions'
 import { notFound } from 'next/navigation'
 import VehicleForm from '@/components/vehicles/VehicleForm'
 import Link from 'next/link'
-import type { Vehicle } from '@/types/app.types'
 
 export default async function EditVehiclePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
+  const vehicle = await fetchVehicleById(id)
 
-  const { data, error } = await supabase
-    .from('vehicles')
-    .select('*')
-    .eq('id', id)
-    .single()
-
-  if (error || !data) return notFound()
-
-  const vehicle = data as Vehicle
+  if (!vehicle) return notFound()
 
   return (
     <>

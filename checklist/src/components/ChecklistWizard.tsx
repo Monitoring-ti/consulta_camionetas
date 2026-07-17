@@ -204,6 +204,8 @@ export default function ChecklistWizard() {
         hora: formData.hora,
         responsable_inspeccion: session.trabajador.nombre,
         cargo: session.trabajador.cargo,
+        responsable_rut: session.trabajador.rut,
+        trabajador_id: session.trabajador.id,
         patente: session.vehiculo.patente,
         kilometraje: currentKm,
         marca_modelo: `${session.vehiculo.marca} ${session.vehiculo.modelo}`,

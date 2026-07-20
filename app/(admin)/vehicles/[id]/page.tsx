@@ -6,6 +6,7 @@ import Link from 'next/link'
 import type { Vehicle } from '@/types/app.types'
 import VehicleQR from '@/components/vehicles/VehicleQR'
 import ReactivateVehicleButton from '@/components/vehicles/ReactivateVehicleButton'
+import PermanentDeleteVehicleButton from '@/components/vehicles/PermanentDeleteVehicleButton'
 
 const DOC_FIELDS: { key: keyof Vehicle; label: string; linkKey?: keyof Vehicle }[] = [
   { key: 'fecha_revision_tecnica', label: 'Revisión Técnica' },
@@ -48,6 +49,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
               {isActive ? 'Activo' : 'Historial'}
             </span>
             {!isActive && <ReactivateVehicleButton vehicleId={id} />}
+            {!isActive && <PermanentDeleteVehicleButton vehicleId={id} patente={vehicle.patente} />}
             <Link href={`/vehicles/${id}/edit`} className="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />

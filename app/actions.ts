@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient as createAuthClient } from '@/lib/supabase/server'
 import { normalizePatente } from '@/lib/utils/patente'
 import { translateVehicleDbError, validateVehiclePayload } from '@/lib/utils/vehicle-form'
 import type {
@@ -167,14 +168,28 @@ export async function fetchVehicles(options?: {
   activeOnly?: boolean
 }): Promise<Vehicle[]> {
   const supabase = createAdminClient()
-  let query = supabase.from('vehicles').select('*').order('patente')
+  let query = supabase
+    .from('vehicles')
+    .select('*')
+    .is('deleted_at', null)
+    .order('patente')
 
   if (options?.activeOnly) {
     query = query.eq('is_active', true)
   }
 
   const { data, error } = await query
-  if (error) throw new Error(error.message)
+  if (error) {
+    // Fallback si la migración deleted_at aún no está aplicada
+    if (error.message.includes('deleted_at')) {
+      let legacy = supabase.from('vehicles').select('*').order('patente')
+      if (options?.activeOnly) legacy = legacy.eq('is_active', true)
+      const legacyRes = await legacy
+      if (legacyRes.error) throw new Error(legacyRes.error.message)
+      return (legacyRes.data ?? []) as Vehicle[]
+    }
+    throw new Error(error.message)
+  }
   return (data ?? []) as Vehicle[]
 }
 
@@ -195,9 +210,22 @@ export async function fetchVehicleById(id: string): Promise<Vehicle | null> {
     .from('vehicles')
     .select('*')
     .eq('id', id)
+    .is('deleted_at', null)
     .single()
 
-  if (error || !data) return null
+  if (error || !data) {
+    // Fallback sin columna deleted_at
+    if (error?.message.includes('deleted_at')) {
+      const legacy = (await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('id', id)
+        .single()) as unknown as { data: Vehicle | null; error: { message: string } | null }
+      if (legacy.error || !legacy.data) return null
+      return legacy.data
+    }
+    return null
+  }
   return data as Vehicle
 }
 
@@ -293,7 +321,10 @@ export async function reactivateVehicleAction(id: string) {
   try {
     const existing = await fetchVehicleById(id)
     if (!existing) {
-      return { ok: false as const, error: 'Vehículo no encontrado.' }
+      return { ok: false as const, error: 'Vehículo no encontrado o ya eliminado.' }
+    }
+    if (existing.deleted_at) {
+      return { ok: false as const, error: 'No se puede reactivar un vehículo eliminado.' }
     }
     if (existing.is_active !== false) {
       return { ok: false as const, error: 'El vehículo ya está activo.' }
@@ -326,6 +357,92 @@ export async function reactivateVehicleAction(id: string) {
     revalidatePath(`/vehicles/${id}`)
     revalidatePath(`/vehicles/${id}/edit`)
     return { ok: true as const, data: data as Vehicle }
+  } catch (err: any) {
+    return { ok: false as const, error: err.message || 'Error del servidor' }
+  }
+}
+
+/**
+ * Eliminación definitiva solo desde historial (desactivado).
+ * Registra quién y cuándo en vehicles + vehicle_deletion_log.
+ */
+export async function permanentlyDeleteVehicleAction(id: string) {
+  try {
+    const auth = await createAuthClient()
+    const {
+      data: { user },
+    } = await auth.auth.getUser()
+    if (!user?.email) {
+      return { ok: false as const, error: 'Debe iniciar sesión para eliminar un vehículo.' }
+    }
+
+    const existing = await fetchVehicleById(id)
+    if (!existing) {
+      return { ok: false as const, error: 'Vehículo no encontrado o ya eliminado.' }
+    }
+    if (existing.is_active !== false) {
+      return {
+        ok: false as const,
+        error: 'Solo se pueden eliminar vehículos desactivados. Desactívelo primero (historial).',
+      }
+    }
+    if (existing.deleted_at) {
+      return { ok: false as const, error: 'Este vehículo ya fue eliminado.' }
+    }
+
+    const deletedAt = new Date().toISOString()
+    const deletedBy = user.email
+    const supabase = createAdminClient()
+
+    const { error: logError } = await supabase.from('vehicle_deletion_log').insert([
+      {
+        vehicle_id: existing.id,
+        patente: existing.patente,
+        marca: existing.marca,
+        modelo: existing.modelo,
+        anio: existing.anio,
+        snapshot: existing as unknown as Record<string, unknown>,
+        deleted_by: deletedBy,
+        deleted_at: deletedAt,
+      },
+    ] as unknown as never[])
+
+    if (logError) {
+      if (logError.message.includes('vehicle_deletion_log') || logError.code === '42P01') {
+        return {
+          ok: false as const,
+          error:
+            'Falta aplicar la migración de auditoría en Supabase (vehicle_deletion_log / deleted_at). Ejecute checklist/supabase/migrations/20260720_vehicle_deletion_audit.sql',
+        }
+      }
+      return { ok: false as const, error: logError.message }
+    }
+
+    const { error } = await supabase
+      .from('vehicles')
+      .update({
+        deleted_at: deletedAt,
+        deleted_by: deletedBy,
+        is_active: false,
+      } as unknown as never)
+      .eq('id', id)
+
+    if (error) {
+      if (error.message.includes('deleted_at')) {
+        return {
+          ok: false as const,
+          error:
+            'Falta aplicar la migración deleted_at en la tabla vehicles. Ejecute checklist/supabase/migrations/20260720_vehicle_deletion_audit.sql',
+        }
+      }
+      return { ok: false as const, error: translateVehicleDbError(error.message, error.code) }
+    }
+
+    revalidatePath('/vehicles')
+    revalidatePath('/inspections')
+    revalidatePath('/dashboard')
+    revalidatePath(`/vehicles/${id}`)
+    return { ok: true as const }
   } catch (err: any) {
     return { ok: false as const, error: err.message || 'Error del servidor' }
   }

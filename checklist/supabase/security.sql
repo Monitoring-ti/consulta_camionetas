@@ -112,6 +112,7 @@ BEGIN
   FROM public.vehicles v
   WHERE public.normalize_patente(v.patente) = v_patente
     AND coalesce(v.is_active, true) = true
+    AND v.deleted_at IS NULL
   LIMIT 1;
 
   IF NOT FOUND THEN

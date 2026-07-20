@@ -65,7 +65,8 @@ export default async function VehiclesPage() {
               Historial (desactivados)
             </h2>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Conservan datos, documentos e inspecciones. No aparecen en la grilla activa ni en terreno hasta reactivarlos.
+              Conservan datos, documentos e inspecciones. No aparecen en flota activa ni en terreno.
+              Desde aquí puede reactivar o eliminar definitivamente (queda registro de quién y cuándo).
             </p>
           </div>
           <VehiclesTable

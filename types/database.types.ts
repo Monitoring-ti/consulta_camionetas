@@ -33,6 +33,8 @@ export interface Database {
           vencimiento_extintor: string | null
           vencimiento_torque_ruedas: string | null
           vencimiento_gps: string | null
+          deleted_at: string | null
+          deleted_by: string | null
         }
         Insert: {
           id?: string
@@ -54,6 +56,8 @@ export interface Database {
           vencimiento_extintor?: string | null
           vencimiento_torque_ruedas?: string | null
           vencimiento_gps?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
         }
         Update: {
           id?: string
@@ -75,6 +79,43 @@ export interface Database {
           vencimiento_extintor?: string | null
           vencimiento_torque_ruedas?: string | null
           vencimiento_gps?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+        }
+      }
+      vehicle_deletion_log: {
+        Row: {
+          id: string
+          vehicle_id: string
+          patente: string
+          marca: string | null
+          modelo: string | null
+          anio: number | null
+          snapshot: Json
+          deleted_by: string
+          deleted_at: string
+        }
+        Insert: {
+          id?: string
+          vehicle_id: string
+          patente: string
+          marca?: string | null
+          modelo?: string | null
+          anio?: number | null
+          snapshot: Json
+          deleted_by: string
+          deleted_at?: string
+        }
+        Update: {
+          id?: string
+          vehicle_id?: string
+          patente?: string
+          marca?: string | null
+          modelo?: string | null
+          anio?: number | null
+          snapshot?: Json
+          deleted_by?: string
+          deleted_at?: string
         }
       }
       monitoring_inspections: {

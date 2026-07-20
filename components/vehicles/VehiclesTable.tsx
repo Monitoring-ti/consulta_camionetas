@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { getDocStatus } from '@/lib/utils/dates'
-import { reactivateVehicleAction } from '@/app/actions'
+import { reactivateVehicleAction, permanentlyDeleteVehicleAction } from '@/app/actions'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Vehicle } from '@/types/app.types'
@@ -53,6 +53,33 @@ export default function VehiclesTable({
       setPendingId(null)
       if (!res.ok) {
         setError(res.error || 'No se pudo reactivar el vehículo')
+        return
+      }
+      router.refresh()
+    })
+  }
+
+  async function handlePermanentDelete(v: Vehicle, e: React.MouseEvent) {
+    e.stopPropagation()
+    const ok1 = confirm(
+      `¿Eliminar definitivamente ${v.patente}?\n\nSolo vehículos desactivados pueden eliminarse. Se registrará quién y cuándo lo eliminó. Las inspecciones históricas por patente se conservan.`
+    )
+    if (!ok1) return
+    const typed = window.prompt(
+      `Para confirmar, escriba la patente exactamente:\n${v.patente}`
+    )
+    if (typed === null) return
+    if (typed.trim().toUpperCase() !== v.patente.trim().toUpperCase()) {
+      setError('La patente no coincide. Eliminación cancelada.')
+      return
+    }
+    setError('')
+    setPendingId(v.id)
+    startTransition(async () => {
+      const res = await permanentlyDeleteVehicleAction(v.id)
+      setPendingId(null)
+      if (!res.ok) {
+        setError(res.error || 'No se pudo eliminar el vehículo')
         return
       }
       router.refresh()
@@ -165,14 +192,24 @@ export default function VehiclesTable({
                         Ver
                       </Link>
                       {isHistory ? (
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm"
-                          disabled={busy}
-                          onClick={e => handleReactivate(v.id, e)}
-                        >
-                          {busy ? '…' : 'Reactivar'}
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            disabled={busy}
+                            onClick={e => handleReactivate(v.id, e)}
+                          >
+                            {busy ? '…' : 'Reactivar'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm"
+                            disabled={busy}
+                            onClick={e => handlePermanentDelete(v, e)}
+                          >
+                            Eliminar
+                          </button>
+                        </>
                       ) : (
                         <Link href={`/vehicles/${v.id}/edit`} className="btn btn-secondary btn-sm">
                           Editar

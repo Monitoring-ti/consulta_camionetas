@@ -12,9 +12,11 @@ interface VehicleQRProps {
 export default function VehicleQR({ patente, marca, modelo }: VehicleQRProps) {
   const [qrUrl, setQrUrl] = useState<string>('')
   const [copied, setCopied] = useState(false)
-  
-  const checkAppUrl = process.env.NEXT_PUBLIC_CHECK_APP_URL || 'http://localhost:3000'
-  const targetUrl = `${checkAppUrl}/check?patente=${patente}`
+
+  const checkAppUrl = (
+    process.env.NEXT_PUBLIC_CHECK_APP_URL || 'https://monitoring-check-campo.vercel.app'
+  ).replace(/\/$/, '')
+  const targetUrl = `${checkAppUrl}/check?patente=${encodeURIComponent(patente)}`
   
   useEffect(() => {
     QRCode.toDataURL(targetUrl, {
@@ -167,7 +169,11 @@ export default function VehicleQR({ patente, marca, modelo }: VehicleQRProps) {
               <img src={qrUrl} alt={`QR ${patente}`} style={{ width: 180, height: 180, display: 'block' }} />
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', margin: '0 10px', lineHeight: 1.4 }}>
-              Escanee para ir directamente al Checklist con la patente <strong>{patente}</strong> pre-cargada.
+              Escanee para abrir el Checklist de campo (
+              <a href={targetUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-primary)' }}>
+                monitoring-check-campo
+              </a>
+              ) con la patente <strong>{patente}</strong> pre-cargada.
             </p>
             <div style={{ display: 'flex', gap: 8, width: '100%' }}>
               <button onClick={handleDownload} className="btn btn-secondary" style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, cursor: 'pointer' }}>

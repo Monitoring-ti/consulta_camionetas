@@ -4,19 +4,17 @@ export function normalizePatente(value: string): string {
 }
 
 /**
- * Formatos válidos Chile:
- * - Antiguo: AB1234 (2 letras + 4 números)
- * - Nuevo:   ABCD12 (4 letras + 2 números)
+ * Formato único de flota: XXXX-XX
+ * (4 letras + 2 números, ej. ABCD-12)
  */
 export function isValidPatenteChilena(value: string): boolean {
   const p = normalizePatente(value)
-  return /^([A-Z]{2}\d{4}|[A-Z]{4}\d{2})$/.test(p)
+  return /^[A-Z]{4}\d{2}$/.test(p)
 }
 
-/** Muestra con guión: AB-1234 o ABCD-12 */
+/** Muestra siempre como XXXX-XX (máx. 6 caracteres alfanuméricos) */
 export function formatPatenteDisplay(value: string): string {
-  const p = normalizePatente(value)
-  if (/^[A-Z]{2}\d{4}$/.test(p)) return `${p.slice(0, 2)}-${p.slice(2)}`
-  if (/^[A-Z]{4}\d{2}$/.test(p)) return `${p.slice(0, 4)}-${p.slice(4)}`
-  return value.toUpperCase().trim()
+  const p = normalizePatente(value).slice(0, 6)
+  if (p.length <= 4) return p
+  return `${p.slice(0, 4)}-${p.slice(4)}`
 }

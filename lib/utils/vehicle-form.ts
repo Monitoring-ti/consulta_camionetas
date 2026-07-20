@@ -36,7 +36,7 @@ export function validateVehiclePayload(
   if (!isValidPatenteChilena(patenteRaw)) {
     return {
       ok: false,
-      error: 'Patente inválida. Use formato chileno: AB1234 (antiguo) o ABCD12 (nuevo).',
+      error: 'Patente inválida. Use el formato XXXX-XX (4 letras y 2 números, ej. ABCD-12).',
     }
   }
 
@@ -109,7 +109,7 @@ export function validateVehiclePayload(
 
 export function translateVehicleDbError(message: string, code?: string): string {
   if (code === '23505' || message.includes('vehicles_patente_key')) {
-    return 'Ya existe un vehículo con esa patente. Verifique si está registrado con otro formato (ej. BZAK-11 vs BZAK11).'
+    return 'Ya existe un vehículo con esa patente. Verifique si está registrado (ej. ABCD-12).'
   }
   if (code === '23502' || message.includes('not-null constraint')) {
     if (message.includes('fecha_revision_tecnica')) {

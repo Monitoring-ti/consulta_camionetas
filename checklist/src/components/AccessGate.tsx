@@ -135,7 +135,7 @@ export default function AccessGate() {
               autoCorrect="off"
               spellCheck={false}
               autoComplete="off"
-              placeholder="ABCD-12 o AB-1234"
+              placeholder="ABCD-12"
               value={patente}
               onChange={(e) => setPatente(formatPatenteDisplay(e.target.value))}
               className={patente && !patenteOk ? 'is-invalid' : ''}
@@ -143,7 +143,7 @@ export default function AccessGate() {
             />
             {patente && !patenteOk && (
               <span className="invalid-feedback">
-                Formato chileno: AB-1234 (antiguo) o ABCD-12 (nuevo)
+                Formato: XXXX-XX (4 letras + 2 números)
               </span>
             )}
           </div>

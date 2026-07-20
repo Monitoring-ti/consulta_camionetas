@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveVehicleAction, deleteVehicleAction, reactivateVehicleAction } from '@/app/actions'
 import { validateVehiclePayload } from '@/lib/utils/vehicle-form'
+import { formatPatenteDisplay } from '@/lib/utils/patente'
 import type { Vehicle } from '@/types/app.types'
 
 interface VehicleFormProps {
@@ -135,13 +136,13 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
             <input
               className="form-input"
               value={form.patente}
-              onChange={e => set('patente', e.target.value.toUpperCase())}
-              placeholder="ABCD12"
+              onChange={e => set('patente', formatPatenteDisplay(e.target.value))}
+              placeholder="ABCD-12"
               required
-              maxLength={10}
+              maxLength={7}
               style={{ textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em' }}
             />
-            <span className="form-hint">Formato: AB1234 o ABCD12</span>
+            <span className="form-hint">Formato: XXXX-XX (4 letras + 2 números)</span>
           </div>
           <div className="form-group">
             <label className="form-label required">Marca</label>

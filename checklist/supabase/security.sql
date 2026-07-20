@@ -30,7 +30,7 @@ LANGUAGE sql
 IMMUTABLE
 AS $$
   SELECT coalesce(
-    public.normalize_patente(p) ~ '^([A-Z]{2}[0-9]{4}|[A-Z]{4}[0-9]{2})$',
+    public.normalize_patente(p) ~ '^[A-Z]{4}[0-9]{2}$',
     false
   );
 $$;

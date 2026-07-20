@@ -1,8 +1,11 @@
 /**
- * Formatea una patente chilena: ABCD12 → ABCD·12 o AB·1234
+ * Formatea patente de flota: ABCD12 → ABCD-12
  */
 export function formatPatente(patente: string): string {
-  return patente?.toUpperCase() ?? '—'
+  if (!patente) return '—'
+  const p = patente.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6)
+  if (p.length <= 4) return p
+  return `${p.slice(0, 4)}-${p.slice(4)}`
 }
 
 /**

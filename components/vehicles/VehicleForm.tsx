@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveVehicleAction, deleteVehicleAction } from '@/app/actions'
-import type { VehicleInsert, VehicleUpdate, Vehicle } from '@/types/app.types'
+import { validateVehiclePayload } from '@/lib/utils/vehicle-form'
+import type { Vehicle } from '@/types/app.types'
 
 interface VehicleFormProps {
   initialData?: Vehicle
@@ -43,52 +44,65 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
     setError('')
     setLoading(true)
 
-    const payload = {
-      patente: form.patente.toUpperCase().trim(),
-      marca: form.marca.trim(),
-      modelo: form.modelo.trim(),
-      anio: parseInt(form.anio),
-      km_actual: parseInt(form.km_actual) || 0,
-      is_active: form.is_active,
-      proveedor_arriendo: form.proveedor_arriendo.trim(),
-      contrato_pertenece: form.contrato_pertenece.trim() || null,
-      fecha_revision_tecnica: form.fecha_revision_tecnica || null,
-      vencimiento_seguro: form.vencimiento_seguro || null,
-      vencimiento_permiso: form.vencimiento_permiso || null,
-      vencimiento_extintor: form.vencimiento_extintor || null,
-      certificado_torque_ruedas: form.certificado_torque_ruedas.trim() || null,
-      vencimiento_torque_ruedas: form.vencimiento_torque_ruedas || null,
-      certificado_gps: form.certificado_gps.trim() || null,
-      vencimiento_gps: form.vencimiento_gps || null,
-    }
+    try {
+      const rawPayload = {
+        patente: form.patente,
+        marca: form.marca,
+        modelo: form.modelo,
+        anio: parseInt(form.anio, 10),
+        km_actual: parseInt(form.km_actual, 10) || 0,
+        is_active: form.is_active,
+        proveedor_arriendo: form.proveedor_arriendo,
+        contrato_pertenece: form.contrato_pertenece || null,
+        fecha_revision_tecnica: form.fecha_revision_tecnica || null,
+        vencimiento_seguro: form.vencimiento_seguro || null,
+        vencimiento_permiso: form.vencimiento_permiso || null,
+        vencimiento_extintor: form.vencimiento_extintor || null,
+        certificado_torque_ruedas: form.certificado_torque_ruedas,
+        vencimiento_torque_ruedas: form.vencimiento_torque_ruedas || null,
+        certificado_gps: form.certificado_gps,
+        vencimiento_gps: form.vencimiento_gps || null,
+      }
 
-    const res = await saveVehicleAction(mode, initialData?.id, payload)
+      const validated = validateVehiclePayload(rawPayload)
+      if (!validated.ok) {
+        setError(validated.error)
+        return
+      }
 
-    if (!res.ok) {
-      setError(res.error || 'Error al guardar vehículo')
+      const res = await saveVehicleAction(mode, initialData?.id, validated.data)
+
+      if (!res.ok) {
+        setError(res.error || 'Error al guardar vehículo')
+        return
+      }
+
+      router.push(`/vehicles/${res.data.id}`)
+      router.refresh()
+    } finally {
       setLoading(false)
-      return
     }
-
-    router.push(`/vehicles/${res.data.id}`)
-    router.refresh()
   }
 
   async function handleDelete() {
     if (!confirm('¿Seguro que deseas desactivar este vehículo?')) return
     setLoading(true)
-    const res = await deleteVehicleAction(initialData!.id)
-    if (!res.ok) {
-      setError(res.error || 'Error al desactivar vehículo')
+    setError('')
+    try {
+      const res = await deleteVehicleAction(initialData!.id)
+      if (!res.ok) {
+        setError(res.error || 'Error al desactivar vehículo')
+        return
+      }
+      router.push('/vehicles')
+      router.refresh()
+    } finally {
       setLoading(false)
-      return
     }
-    router.push('/vehicles')
-    router.refresh()
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} noValidate>
       {error && (
         <div className="login-error" style={{ marginBottom: 20 }}>
           {error}
@@ -110,6 +124,7 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
               maxLength={10}
               style={{ textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em' }}
             />
+            <span className="form-hint">Formato: AB1234 o ABCD12</span>
           </div>
           <div className="form-group">
             <label className="form-label required">Marca</label>
@@ -121,7 +136,7 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
           </div>
           <div className="form-group">
             <label className="form-label required">Año</label>
-            <input className="form-input" type="number" value={form.anio} onChange={e => set('anio', e.target.value)} min={2000} max={2030} required />
+            <input className="form-input" type="number" value={form.anio} onChange={e => set('anio', e.target.value)} min={1990} max={2035} required />
           </div>
           <div className="form-group">
             <label className="form-label">Km Actual</label>
@@ -190,8 +205,15 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
         <div className="form-grid form-grid-2">
           <div className="form-group">
             <label className="form-label">Certificado Torque de Ruedas (link)</label>
-            <input className="form-input" type="url" value={form.certificado_torque_ruedas} onChange={e => set('certificado_torque_ruedas', e.target.value)} placeholder="https://..." />
-            <span className="form-hint">Link a Drive, SharePoint u otro</span>
+            <input
+              className="form-input"
+              type="text"
+              inputMode="url"
+              value={form.certificado_torque_ruedas}
+              onChange={e => set('certificado_torque_ruedas', e.target.value)}
+              placeholder="drive.google.com/... o https://..."
+            />
+            <span className="form-hint">Opcional. Puede omitir https://</span>
           </div>
           <div className="form-group">
             <label className="form-label">Validez Torque (fecha)</label>
@@ -199,8 +221,15 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
           </div>
           <div className="form-group">
             <label className="form-label">Certificado GPS (link)</label>
-            <input className="form-input" type="url" value={form.certificado_gps} onChange={e => set('certificado_gps', e.target.value)} placeholder="https://..." />
-            <span className="form-hint">Link a Drive, SharePoint u otro</span>
+            <input
+              className="form-input"
+              type="text"
+              inputMode="url"
+              value={form.certificado_gps}
+              onChange={e => set('certificado_gps', e.target.value)}
+              placeholder="drive.google.com/... o https://..."
+            />
+            <span className="form-hint">Opcional. Puede omitir https://</span>
           </div>
           <div className="form-group">
             <label className="form-label">Validez GPS (fecha)</label>
@@ -223,12 +252,13 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
             type="button"
             className="btn btn-secondary"
             onClick={() => router.back()}
+            disabled={loading}
           >
             Cancelar
           </button>
         </div>
         {mode === 'edit' && initialData?.is_active && (
-          <button type="button" className="btn btn-danger" onClick={handleDelete}>
+          <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={loading}>
             Desactivar
           </button>
         )}

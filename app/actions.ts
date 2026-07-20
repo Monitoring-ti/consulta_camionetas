@@ -1,6 +1,9 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { normalizePatente } from '@/lib/utils/patente'
+import { translateVehicleDbError, validateVehiclePayload } from '@/lib/utils/vehicle-form'
 import type {
   TrabajadorDocVenc,
   DocVencPayload,
@@ -183,24 +186,64 @@ export async function fetchVehicleById(id: string): Promise<Vehicle | null> {
   return data as Vehicle
 }
 
+async function findVehicleByNormalizedPatente(
+  patenteKey: string,
+  excludeId?: string
+): Promise<Vehicle | null> {
+  const vehicles = await fetchVehicles()
+  return (
+    vehicles.find(v => {
+      if (excludeId && v.id === excludeId) return false
+      return normalizePatente(v.patente) === patenteKey
+    }) ?? null
+  )
+}
+
 export async function saveVehicleAction(
   mode: 'create' | 'edit',
   id: string | undefined,
   payload: VehicleInsert | VehicleUpdate
 ): Promise<{ ok: true; data: Vehicle } | { ok: false; error: string }> {
   try {
+    const validated = validateVehiclePayload(payload)
+    if (!validated.ok) {
+      return { ok: false, error: validated.error }
+    }
+
+    const data = validated.data
+    const patenteKey = normalizePatente(String(data.patente ?? ''))
+    const duplicate = await findVehicleByNormalizedPatente(patenteKey, mode === 'edit' ? id : undefined)
+    if (duplicate) {
+      return {
+        ok: false,
+        error: `Ya existe un vehículo con patente ${duplicate.patente}. Use otro registro o edite el existente.`,
+      }
+    }
+
     const supabase = createAdminClient()
     let result
     if (mode === 'create') {
-      result = await supabase.from('vehicles').insert(payload as VehicleInsert).select().single()
+      result = await supabase.from('vehicles').insert([data] as unknown as never[]).select().single()
     } else {
       if (!id) throw new Error('ID is required for editing')
-      result = await supabase.from('vehicles').update(payload as VehicleUpdate).eq('id', id).select().single()
+      result = await supabase.from('vehicles').update(data as unknown as never).eq('id', id).select().single()
     }
 
     if (result.error) {
-      return { ok: false, error: result.error.message }
+      return {
+        ok: false,
+        error: translateVehicleDbError(result.error.message, result.error.code),
+      }
     }
+
+    revalidatePath('/vehicles')
+    revalidatePath('/inspections')
+    revalidatePath('/dashboard')
+    if (id) {
+      revalidatePath(`/vehicles/${id}`)
+      revalidatePath(`/vehicles/${id}/edit`)
+    }
+
     return { ok: true, data: result.data as Vehicle }
   } catch (err: any) {
     return { ok: false, error: err.message || 'Error del servidor' }
@@ -210,8 +253,13 @@ export async function saveVehicleAction(
 export async function deleteVehicleAction(id: string) {
   try {
     const supabase = createAdminClient()
-    const { error } = await supabase.from('vehicles').update({ is_active: false }).eq('id', id)
-    if (error) return { ok: false, error: error.message }
+    const { error } = await supabase.from('vehicles').update({ is_active: false } as unknown as never).eq('id', id)
+    if (error) {
+      return { ok: false, error: translateVehicleDbError(error.message, error.code) }
+    }
+    revalidatePath('/vehicles')
+    revalidatePath('/dashboard')
+    revalidatePath(`/vehicles/${id}`)
     return { ok: true }
   } catch (err: any) {
     return { ok: false, error: err.message || 'Error del servidor' }

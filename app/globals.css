@@ -112,6 +112,40 @@ img {
   min-height: 100vh;
 }
 
+.sidebar-toggle {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 130;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--brand-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg-surface-2);
+  border-color: var(--brand-primary);
+}
+
+.sidebar-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(25, 28, 30, 0.45);
+  cursor: pointer;
+}
+
 .sidebar {
   width: var(--sidebar-width);
   background: var(--brand-primary);
@@ -122,8 +156,15 @@ img {
   top: 0;
   left: 0;
   height: 100vh;
-  z-index: 100;
-  transition: transform 0.25s ease;
+  z-index: 120;
+  transform: translateX(-100%);
+  transition: transform 0.22s ease;
+  pointer-events: none;
+}
+
+.sidebar.is-open {
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .sidebar-logo {
@@ -249,14 +290,14 @@ img {
 
 .main-content {
   flex: 1;
-  margin-left: var(--sidebar-width);
+  margin-left: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 .page-header {
-  padding: 24px 32px 0;
+  padding: 24px 32px 0 72px;
 }
 
 .page-title {
@@ -1240,6 +1281,10 @@ tbody td.primary {
     transform: translateX(-100%);
   }
 
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
   .main-content {
     margin-left: 0;
   }
@@ -1247,6 +1292,11 @@ tbody td.primary {
   .page-header, .page-body {
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  .page-header {
+    padding-top: 72px;
+    padding-left: 16px;
   }
 
   .kpi-grid {
@@ -1408,89 +1458,91 @@ tbody td.primary {
   }
 }
 
-/* ─── Chilean license plate ─── */
+/* ─── Chilean license plate (AA ★ BB · 12 / CHILE) ─── */
 .chilean-plate {
   display: inline-flex;
-  align-items: stretch;
-  background: #f7f7f5;
-  border: 2px solid #1a1a1a;
-  border-radius: 4px;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px #c8c8c4;
-  vertical-align: middle;
-  line-height: 1;
-}
-
-.chilean-plate--sm {
-  height: 34px;
-  min-width: 118px;
-}
-
-.chilean-plate--md {
-  height: 48px;
-  min-width: 168px;
-}
-
-.chilean-plate--muted {
-  opacity: 0.72;
-  filter: grayscale(0.35);
-}
-
-.chilean-plate__band {
-  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  width: 22px;
-  background: linear-gradient(180deg, #0039a6 0 33%, #fff 33% 66%, #d52b1e 66% 100%);
-  color: #fff;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.chilean-plate__star {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 9px;
-  color: #0039a6;
-  text-shadow: 0 0 0 #fff;
+  background: #ffffff;
+  border: 2px solid #111;
+  border-radius: 6px;
+  vertical-align: middle;
   line-height: 1;
-  z-index: 1;
+  box-sizing: border-box;
 }
 
-.chilean-plate--md .chilean-plate__band {
-  width: 28px;
+.chilean-plate--sm {
+  min-width: 132px;
+  padding: 4px 8px 3px;
 }
 
-.chilean-plate--md .chilean-plate__star {
-  font-size: 12px;
+.chilean-plate--md {
+  min-width: 196px;
+  padding: 8px 14px 6px;
 }
 
-.chilean-plate__cl {
-  display: none;
+.chilean-plate--muted {
+  opacity: 0.75;
+  filter: grayscale(0.25);
 }
 
-.chilean-plate__code {
-  display: flex;
+.chilean-plate__row {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  padding: 0 10px;
+  gap: 3px;
+}
+
+.chilean-plate--md .chilean-plate__row {
+  gap: 6px;
+}
+
+.chilean-plate__chars {
   font-family: 'Inter', 'Arial Black', Arial, sans-serif;
   font-weight: 800;
   font-size: 0.95rem;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.04em;
   color: #111;
-  background: #f7f7f5;
 }
 
-.chilean-plate--md .chilean-plate__code {
-  font-size: 1.35rem;
-  letter-spacing: 0.14em;
-  padding: 0 14px;
+.chilean-plate--md .chilean-plate__chars {
+  font-size: 1.55rem;
+  letter-spacing: 0.06em;
+}
+
+.chilean-plate__dot {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #111;
+  line-height: 1;
+  margin: 0 1px;
+}
+
+.chilean-plate--md .chilean-plate__dot {
+  font-size: 1.6rem;
+}
+
+.chilean-plate__shield {
+  flex-shrink: 0;
+  display: block;
+}
+
+.chilean-plate__country {
+  margin-top: 1px;
+  font-family: 'Inter', Arial, sans-serif;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  color: #111;
+  text-indent: 0.35em;
+}
+
+.chilean-plate--md .chilean-plate__country {
+  margin-top: 3px;
+  font-size: 0.72rem;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
 }
 
 .chilean-plate-btn {
@@ -1499,7 +1551,7 @@ tbody td.primary {
   border: none;
   background: transparent;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .chilean-plate-btn:hover .chilean-plate {

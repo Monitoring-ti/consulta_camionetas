@@ -44,11 +44,11 @@ export default function LoginPage() {
       <div className="login-box">
         <div className="login-logo">
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={{ margin: '0 auto 12px' }}>
-            <rect width="40" height="40" rx="10" fill="rgba(14,165,233,0.15)" />
-            <path d="M8 28L12 16H28L32 28H8Z" fill="none" stroke="#0ea5e9" strokeWidth="2" strokeLinejoin="round" />
-            <circle cx="14" cy="30" r="2.5" fill="#0ea5e9" />
-            <circle cx="26" cy="30" r="2.5" fill="#0ea5e9" />
-            <path d="M12 22H28" stroke="#0ea5e9" strokeWidth="1.5" />
+            <rect width="40" height="40" rx="8" fill="rgba(20,34,117,0.12)" />
+            <path d="M8 28L12 16H28L32 28H8Z" fill="none" stroke="#142275" strokeWidth="2" strokeLinejoin="round" />
+            <circle cx="14" cy="30" r="2.5" fill="#fc9430" />
+            <circle cx="26" cy="30" r="2.5" fill="#fc9430" />
+            <path d="M12 22H28" stroke="#142275" strokeWidth="1.5" />
           </svg>
           <h1>Monitoring Admin</h1>
           <p>Control de Vehículos e Inspecciones</p>
@@ -96,7 +96,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="btn btn-primary"
+            className="btn btn-action"
             disabled={loading}
           >
             {loading ? (

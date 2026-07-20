@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-toggle-si { background-color: #22C55E; color: white; border-color: #22C55E; }
+        .active-toggle-no { background-color: #EF4444; color: white; border-color: #EF4444; }
+        .active-toggle-obs { background-color: #FACC15; color: #191c1e; border-color: #FACC15; }
+        
+        /* Custom Scrollbar for heavy industrial use */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #142275; border-radius: 4px; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "text-on-light": "#1A1C1E",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#4b57a9",
+                        "error-container": "#ffdad6",
+                        "primary": "#142275",
+                        "on-tertiary-container": "#f09c63",
+                        "secondary-container": "#fc9430",
+                        "on-surface": "#191c1e",
+                        "tertiary": "#4b2100",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#f0f1f3",
+                        "surface": "#f8f9fb",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e1e2e4",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#2f1500",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#663500",
+                        "on-primary-fixed-variant": "#323f90",
+                        "on-primary": "#ffffff",
+                        "status-observada": "#FACC15",
+                        "surface-container": "#edeef0",
+                        "surface-card": "#FFFFFF",
+                        "on-primary-fixed": "#000e5e",
+                        "on-background": "#191c1e",
+                        "outline-variant": "#c6c5d3",
+                        "surface-bright": "#f8f9fb",
+                        "tertiary-container": "#6d3300",
+                        "tertiary-fixed": "#ffdcc7",
+                        "surface-dim": "#d9dadc",
+                        "inverse-primary": "#bbc3ff",
+                        "secondary": "#914d00",
+                        "inverse-surface": "#2e3132",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#dfe0ff",
+                        "surface-container-low": "#f3f4f6",
+                        "status-no-apta": "#EF4444",
+                        "on-surface-variant": "#454651",
+                        "surface-variant": "#e1e2e4",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "status-apta": "#22C55E",
+                        "on-tertiary-fixed-variant": "#723603",
+                        "primary-container": "#2e3b8c",
+                        "tertiary-fixed-dim": "#ffb787",
+                        "on-primary-container": "#9eaaff",
+                        "outline": "#767682",
+                        "background": "#f8f9fb",
+                        "secondary-fixed": "#ffdcc3",
+                        "surface-container-high": "#e7e8ea",
+                        "on-tertiary-fixed": "#311300",
+                        "primary-fixed-dim": "#bbc3ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "gutter": "16px",
+                        "touch-target-min": "48px",
+                        "base": "8px",
+                        "margin-tablet": "32px",
+                        "field-spacing": "20px"
+                    },
+                    "fontFamily": {
+                        "label-bold": ["Inter"],
+                        "button-text": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-bold": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "button-text": ["16px", {"lineHeight": "24px", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "26px", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-lg": ["28px", {"lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md min-h-screen pb-32">
+<!-- Top AppBar (from Shared Components) -->
+<header class="bg-surface dark:bg-surface-dim text-primary dark:text-inverse-primary border-b-2 border-outline-variant dark:border-outline docked full-width top-0 sticky z-50 flex justify-between items-center w-full px-margin-mobile h-touch-target-min">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-black text-xs">M</div>
+<h1 class="text-headline-md font-headline-md font-black text-primary dark:text-primary-fixed-dim">Monitoring</h1>
+</div>
+<button class="text-label-bold font-label-bold px-4 py-1 hover:bg-surface-container-high dark:hover:bg-inverse-surface active:scale-95 transition-transform duration-150">
+            Salir
+        </button>
+</header>
+<main class="max-w-4xl mx-auto px-margin-mobile mt-6">
+<!-- Header Info -->
+<div class="mb-8 border-l-4 border-primary pl-4 py-2">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary uppercase tracking-tight">Inspección de Unidad</h2>
+<p class="text-on-surface-variant font-label-bold text-label-bold">ID: VH-99283 • Operador: J. Pérez</p>
+</div>
+<!-- Checklist Sections -->
+<div class="space-y-8">
+<!-- BLOCK 1: EXTERIOR -->
+<section>
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-primary bg-primary-fixed p-2 rounded-lg">garage</span>
+<h3 class="font-headline-md text-headline-md text-primary">Exterior</h3>
+</div>
+<div class="grid gap-4">
+<!-- Item Template -->
+<div class="bg-surface-card border-2 border-outline-variant p-4 flex flex-col gap-4 shadow-sm">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Neumáticos y Rines</p>
+<span class="text-xs text-on-surface-variant">Presión, desgaste y pernos</span>
+</div>
+<button class="flex items-center gap-1 text-primary font-label-bold text-sm bg-surface-container-low px-3 py-2 rounded active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">add_a_photo</span>
+                                Foto
+                            </button>
+</div>
+<div class="flex items-center gap-3">
+<div class="grid grid-cols-3 w-full max-w-[280px] bg-surface-container p-1 rounded-lg border border-outline">
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'si')">Sí</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'no')">No</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'obs')">Obs.</button>
+</div>
+<div class="flex items-center gap-2 ml-auto">
+<span class="text-xs font-bold text-status-no-apta">CRÍTICO</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-status-no-apta"></div>
+</label>
+</div>
+</div>
+</div>
+<div class="bg-surface-card border-2 border-outline-variant p-4 flex flex-col gap-4 shadow-sm">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Luces Perimetrales</p>
+<span class="text-xs text-on-surface-variant">Altas, bajas, frenos y cruce</span>
+</div>
+<button class="flex items-center gap-1 text-primary font-label-bold text-sm bg-surface-container-low px-3 py-2 rounded active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">add_a_photo</span>
+                                Foto
+                            </button>
+</div>
+<div class="flex items-center gap-3">
+<div class="grid grid-cols-3 w-full max-w-[280px] bg-surface-container p-1 rounded-lg border border-outline">
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent active-toggle-si" onclick="toggleSelect(this, 'si')">Sí</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'no')">No</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'obs')">Obs.</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- BLOCK 2: SEGURIDAD -->
+<section>
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-primary bg-primary-fixed p-2 rounded-lg">security</span>
+<h3 class="font-headline-md text-headline-md text-primary">Seguridad</h3>
+</div>
+<div class="grid gap-4">
+<div class="bg-surface-card border-2 border-outline-variant p-4 flex flex-col gap-4 shadow-sm">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Extintor y Kit Emergencia</p>
+<span class="text-xs text-on-surface-variant">Carga vigente y componentes</span>
+</div>
+<button class="flex items-center gap-1 text-primary font-label-bold text-sm bg-surface-container-low px-3 py-2 rounded active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">add_a_photo</span>
+                                Foto
+                            </button>
+</div>
+<div class="flex items-center gap-3">
+<div class="grid grid-cols-3 w-full max-w-[280px] bg-surface-container p-1 rounded-lg border border-outline">
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'si')">Sí</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'no')">No</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'obs')">Obs.</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- BLOCK 3: OPERACIÓN -->
+<section>
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-primary bg-primary-fixed p-2 rounded-lg">settings_suggest</span>
+<h3 class="font-headline-md text-headline-md text-primary">Operación</h3>
+</div>
+<div class="grid gap-4">
+<div class="bg-surface-card border-2 border-outline-variant p-4 flex flex-col gap-4 shadow-sm">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Niveles de Fluidos</p>
+<span class="text-xs text-on-surface-variant">Aceite, refrigerante, frenos</span>
+</div>
+<button class="flex items-center gap-1 text-primary font-label-bold text-sm bg-surface-container-low px-3 py-2 rounded active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">add_a_photo</span>
+                                Foto
+                            </button>
+</div>
+<div class="flex items-center gap-3">
+<div class="grid grid-cols-3 w-full max-w-[280px] bg-surface-container p-1 rounded-lg border border-outline">
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'si')">Sí</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent active-toggle-no" onclick="toggleSelect(this, 'no')">No</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'obs')">Obs.</button>
+</div>
+<div class="flex items-center gap-2 ml-auto">
+<span class="text-xs font-bold text-status-no-apta">CRÍTICO</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-status-no-apta"></div>
+</label>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- BLOCK 4: DOCUMENTOS -->
+<section>
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-primary bg-primary-fixed p-2 rounded-lg">description</span>
+<h3 class="font-headline-md text-headline-md text-primary">Documentos</h3>
+</div>
+<div class="grid gap-4">
+<div class="bg-surface-card border-2 border-outline-variant p-4 flex flex-col gap-4 shadow-sm">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Licencia y Seguro</p>
+<span class="text-xs text-on-surface-variant">Verificar vigencia física o digital</span>
+</div>
+<button class="flex items-center gap-1 text-primary font-label-bold text-sm bg-surface-container-low px-3 py-2 rounded active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">add_a_photo</span>
+                                Foto
+                            </button>
+</div>
+<div class="flex items-center gap-3">
+<div class="grid grid-cols-3 w-full max-w-[280px] bg-surface-container p-1 rounded-lg border border-outline">
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'si')">Sí</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'no')">No</button>
+<button class="py-3 px-2 font-button-text text-button-text transition-colors rounded-md border border-transparent" onclick="toggleSelect(this, 'obs')">Obs.</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Bottom Action Button Container (Fixed) -->
+<div class="fixed bottom-0 left-0 w-full bg-white p-margin-mobile border-t-2 border-outline flex items-center justify-center z-50">
+<button class="w-full max-w-lg h-14 bg-secondary font-button-text text-button-text text-on-secondary rounded-lg active:scale-95 transition-transform duration-150 flex items-center justify-center gap-2 shadow-lg">
+            Finalizar Inspección
+            <span class="material-symbols-outlined">send</span>
+</button>
+</div>
+<!-- Micro-interactions Script -->
+<script>
+        function toggleSelect(element, type) {
+            const container = element.parentElement;
+            const buttons = container.querySelectorAll('button');
+            
+            buttons.forEach(btn => {
+                btn.classList.remove('active-toggle-si', 'active-toggle-no', 'active-toggle-obs');
+            });
+
+            if (type === 'si') {
+                element.classList.add('active-toggle-si');
+            } else if (type === 'no') {
+                element.classList.add('active-toggle-no');
+            } else if (type === 'obs') {
+                element.classList.add('active-toggle-obs');
+            }
+        }
+        
+        // Initial state logic or simulated data could go here
+    </script>
+</body></html>

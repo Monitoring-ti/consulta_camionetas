@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { getDocStatus } from '@/lib/utils/dates'
 import { reactivateVehicleAction, permanentlyDeleteVehicleAction } from '@/app/actions'
+import ChileanPlate from '@/components/vehicles/ChileanPlate'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Vehicle } from '@/types/app.types'
@@ -29,6 +30,7 @@ type VehiclesTableProps = {
   mode?: 'active' | 'history'
   emptyMessage?: string
   showCreateCta?: boolean
+  compact?: boolean
 }
 
 export default function VehiclesTable({
@@ -36,6 +38,7 @@ export default function VehiclesTable({
   mode = 'active',
   emptyMessage,
   showCreateCta = false,
+  compact = false,
 }: VehiclesTableProps) {
   const router = useRouter()
   const [error, setError] = useState('')
@@ -86,27 +89,37 @@ export default function VehiclesTable({
     })
   }
 
+  function goPatente(v: Vehicle, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (isHistory) {
+      router.push(`/vehicles/${v.id}`)
+    } else {
+      router.push(`/vehicles/${v.id}/edit`)
+    }
+  }
+
+  const colSpan = compact ? 7 : 8
+
   if (vehicles.length === 0) {
     return (
       <div className="card">
         <div className="table-wrapper">
-          <table>
+          <table className="vehicles-grid">
             <thead>
               <tr>
                 <th>Patente</th>
                 <th>Vehículo</th>
-                <th>Año</th>
-                <th>Km Actual</th>
+                {!compact && <th>Año</th>}
+                <th>Km</th>
                 <th>Proveedor</th>
-                <th>Contrato</th>
-                <th>Estado Docs</th>
-                <th>Estado</th>
+                <th>Docs</th>
+                {!isHistory && <th>Estado</th>}
                 <th></th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colSpan={9}>
+                <td colSpan={colSpan}>
                   <div className="empty-state">
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v9a2 2 0 01-2 2h-2" />
@@ -114,7 +127,7 @@ export default function VehiclesTable({
                     </svg>
                     <p>{emptyMessage ?? (isHistory ? 'No hay vehículos en el historial' : 'No hay vehículos activos')}</p>
                     {showCreateCta && (
-                      <Link href="/vehicles/new" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
+                      <Link href="/vehicles/new" className="btn btn-action btn-sm" style={{ marginTop: 12 }}>
                         Crear el primero
                       </Link>
                     )}
@@ -136,17 +149,16 @@ export default function VehiclesTable({
         </div>
       )}
       <div className="table-wrapper">
-        <table>
+        <table className="vehicles-grid">
           <thead>
             <tr>
               <th>Patente</th>
               <th>Vehículo</th>
-              <th>Año</th>
-              <th>Km Actual</th>
+              {!compact && <th>Año</th>}
+              <th>Km</th>
               <th>Proveedor</th>
-              <th>Contrato</th>
-              <th>Estado Docs</th>
-              <th>Estado</th>
+              <th>Docs</th>
+              {!isHistory && <th>Estado</th>}
               <th></th>
             </tr>
           </thead>
@@ -167,30 +179,48 @@ export default function VehiclesTable({
               }
               const busy = isPending && pendingId === v.id
               return (
-                <tr key={v.id} onClick={() => router.push(`/vehicles/${v.id}`)}>
-                  <td className="primary" style={{ fontWeight: 700, letterSpacing: '0.05em' }}>
-                    {v.patente}
+                <tr
+                  key={v.id}
+                  onClick={() => router.push(`/vehicles/${v.id}`)}
+                >
+                  <td onClick={e => goPatente(v, e)}>
+                    <button
+                      type="button"
+                      className="chilean-plate-btn"
+                      title={isHistory ? 'Ver ficha' : 'Editar vehículo'}
+                      onClick={e => goPatente(v, e)}
+                    >
+                      <ChileanPlate patente={v.patente} muted={isHistory} />
+                    </button>
                   </td>
-                  <td className="primary">{v.marca} {v.modelo}</td>
-                  <td>{v.anio}</td>
+                  <td className="primary">
+                    <div style={{ fontWeight: 600 }}>{v.marca} {v.modelo}</div>
+                    {compact && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{v.anio}</div>
+                    )}
+                  </td>
+                  {!compact && <td>{v.anio}</td>}
                   <td>{v.km_actual?.toLocaleString('es-CL') ?? '—'} km</td>
-                  <td>{v.proveedor_arriendo ?? '—'}</td>
-                  <td>{v.contrato_pertenece ?? '—'}</td>
+                  <td>
+                    <div>{v.proveedor_arriendo ?? '—'}</div>
+                    {v.contrato_pertenece && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{v.contrato_pertenece}</div>
+                    )}
+                  </td>
                   <td>
                     <span className={`badge ${badgeClass[worst]}`}>
                       {badgeLabel[worst]}
                     </span>
                   </td>
-                  <td>
-                    <span className={`badge ${v.is_active ? 'badge-active' : 'badge-inactive'}`}>
-                      {v.is_active ? 'Activo' : 'Historial'}
-                    </span>
-                  </td>
+                  {!isHistory && (
+                    <td>
+                      <span className={`badge ${v.is_active ? 'badge-active' : 'badge-inactive'}`}>
+                        {v.is_active ? 'Activo' : 'Historial'}
+                      </span>
+                    </td>
+                  )}
                   <td onClick={e => e.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <Link href={`/vehicles/${v.id}`} className="btn btn-secondary btn-sm">
-                        Ver
-                      </Link>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       {isHistory ? (
                         <>
                           <button
@@ -211,8 +241,8 @@ export default function VehiclesTable({
                           </button>
                         </>
                       ) : (
-                        <Link href={`/vehicles/${v.id}/edit`} className="btn btn-secondary btn-sm">
-                          Editar
+                        <Link href={`/vehicles/${v.id}`} className="btn btn-secondary btn-sm">
+                          Ver
                         </Link>
                       )}
                     </div>

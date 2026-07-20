@@ -1407,3 +1407,174 @@ tbody td.primary {
     text-decoration: none !important;
   }
 }
+
+/* ─── Chilean license plate ─── */
+.chilean-plate {
+  display: inline-flex;
+  align-items: stretch;
+  background: #f7f7f5;
+  border: 2px solid #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px #c8c8c4;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.chilean-plate--sm {
+  height: 34px;
+  min-width: 118px;
+}
+
+.chilean-plate--md {
+  height: 48px;
+  min-width: 168px;
+}
+
+.chilean-plate--muted {
+  opacity: 0.72;
+  filter: grayscale(0.35);
+}
+
+.chilean-plate__band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 22px;
+  background: linear-gradient(180deg, #0039a6 0 33%, #fff 33% 66%, #d52b1e 66% 100%);
+  color: #fff;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.chilean-plate__star {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 9px;
+  color: #0039a6;
+  text-shadow: 0 0 0 #fff;
+  line-height: 1;
+  z-index: 1;
+}
+
+.chilean-plate--md .chilean-plate__band {
+  width: 28px;
+}
+
+.chilean-plate--md .chilean-plate__star {
+  font-size: 12px;
+}
+
+.chilean-plate__cl {
+  display: none;
+}
+
+.chilean-plate__code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 0 10px;
+  font-family: 'Inter', 'Arial Black', Arial, sans-serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  color: #111;
+  background: #f7f7f5;
+}
+
+.chilean-plate--md .chilean-plate__code {
+  font-size: 1.35rem;
+  letter-spacing: 0.14em;
+  padding: 0 14px;
+}
+
+.chilean-plate-btn {
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.chilean-plate-btn:hover .chilean-plate {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(20, 34, 117, 0.15);
+}
+
+.chilean-plate-btn:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.vehicles-grid tbody td {
+  padding: 10px 14px;
+}
+
+.vehicles-grid tbody tr {
+  min-height: 56px;
+}
+
+/* ─── Modal ─── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(25, 28, 30, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.modal-panel {
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: min(960px, 100%);
+  max-height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface-2);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.modal-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.modal-body {
+  padding: 16px 20px 20px;
+  overflow: auto;
+  flex: 1;
+}
+
+.vehicles-history-modal .card {
+  border: none;
+  border-radius: 0;
+}
+

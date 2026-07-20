@@ -7,6 +7,7 @@ import type { Vehicle } from '@/types/app.types'
 import VehicleQR from '@/components/vehicles/VehicleQR'
 import ReactivateVehicleButton from '@/components/vehicles/ReactivateVehicleButton'
 import PermanentDeleteVehicleButton from '@/components/vehicles/PermanentDeleteVehicleButton'
+import ChileanPlate from '@/components/vehicles/ChileanPlate'
 
 const DOC_FIELDS: { key: keyof Vehicle; label: string; linkKey?: keyof Vehicle }[] = [
   { key: 'fecha_revision_tecnica', label: 'Revisión Técnica' },
@@ -36,8 +37,13 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 className="page-title">{vehicle.patente}</h1>
-            <p className="page-subtitle">{vehicle.marca} {vehicle.modelo} · {vehicle.anio}</p>
+            <div style={{ marginBottom: 8 }}>
+              <ChileanPlate patente={vehicle.patente} size="md" muted={!isActive} />
+            </div>
+            <h1 className="page-title" style={{ fontSize: '1.35rem' }}>
+              {vehicle.marca} {vehicle.modelo}
+            </h1>
+            <p className="page-subtitle">{vehicle.anio}</p>
             {!isActive && (
               <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 En historial: datos e inspecciones conservados. No disponible en terreno hasta reactivar.

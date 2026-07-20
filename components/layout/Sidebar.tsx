@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -69,22 +69,33 @@ interface SidebarProps {
 export default function Sidebar({ userEmail }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const close = useCallback(() => setOpen(false), [])
+  const collapse = useCallback(() => {
+    if (!pinned) setExpanded(false)
+  }, [pinned])
 
   useEffect(() => {
-    close()
-  }, [pathname, close])
+    if (!pinned) setExpanded(false)
+  }, [pathname, pinned])
 
   useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+    return () => {
+      if (leaveTimer.current) clearTimeout(leaveTimer.current)
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, close])
+  }, [])
+
+  function handleEnter() {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setExpanded(true)
+  }
+
+  function handleLeave() {
+    if (pinned) return
+    leaveTimer.current = setTimeout(() => setExpanded(false), 180)
+  }
 
   async function handleLogout() {
     const supabase = createClient()
@@ -97,79 +108,77 @@ export default function Sidebar({ userEmail }: SidebarProps) {
     ? userEmail.split('@')[0].slice(0, 2).toUpperCase()
     : 'AD'
 
-  return (
-    <>
-      <button
-        type="button"
-        className="sidebar-toggle"
-        aria-label={open ? 'Ocultar menú' : 'Abrir menú'}
-        aria-expanded={open}
-        onClick={() => setOpen(v => !v)}
-      >
-        {open ? (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        ) : (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        )}
-      </button>
+  const isExpanded = expanded || pinned
 
-      {open && (
+  return (
+    <aside
+      className={`sidebar${isExpanded ? ' is-expanded' : ' is-collapsed'}`}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+    >
+      <div className="sidebar-logo">
         <button
           type="button"
-          className="sidebar-scrim"
-          aria-label="Cerrar menú"
-          onClick={close}
-        />
-      )}
+          className="sidebar-brand"
+          title={pinned ? 'Desfijar menú' : 'Fijar menú abierto'}
+          aria-label={pinned ? 'Desfijar menú' : 'Fijar menú abierto'}
+          onClick={() => {
+            setPinned(p => !p)
+            setExpanded(true)
+          }}
+        >
+          <span className="sidebar-brand-mark">M</span>
+          <span className="sidebar-brand-text">
+            <strong>Monitoring</strong>
+            <small>Admin</small>
+          </span>
+        </button>
+      </div>
 
-      <aside className={`sidebar${open ? ' is-open' : ''}`} aria-hidden={!open}>
-        <div className="sidebar-logo">
-          <h1>Monitoring Admin</h1>
-          <p>Control de Vehículos</p>
-        </div>
-
-        <nav className="sidebar-nav">
-          {navItems.map(section => (
-            <div key={section.section}>
-              <div className="nav-section-label">{section.section}</div>
-              {section.links.map(link => (
+      <nav className="sidebar-nav">
+        {navItems.map(section => (
+          <div key={section.section} className="nav-section">
+            <div className="nav-section-label">{section.section}</div>
+            {section.links.map(link => {
+              const active =
+                pathname === link.href || pathname.startsWith(link.href + '/')
+              return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`nav-link ${
-                    pathname === link.href || pathname.startsWith(link.href + '/')
-                      ? 'active'
-                      : ''
-                  }`}
-                  onClick={close}
+                  className={`nav-link${active ? ' active' : ''}`}
+                  title={link.label}
+                  aria-label={link.label}
+                  onClick={collapse}
                 >
-                  {link.icon}
-                  {link.label}
+                  <span className="nav-link-icon">{link.icon}</span>
+                  <span className="nav-link-label">{link.label}</span>
                 </Link>
-              ))}
-            </div>
-          ))}
-        </nav>
-
-        <div className="sidebar-footer">
-          <div className="user-info">
-            <div className="user-avatar">{initials}</div>
-            <div className="user-email">{userEmail ?? 'Administrador'}</div>
+              )
+            })}
           </div>
-          <button className="btn-logout" onClick={handleLogout}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            Cerrar sesión
-          </button>
+        ))}
+      </nav>
+
+      <div className="sidebar-footer">
+        <div className="user-info" title={userEmail ?? 'Administrador'}>
+          <div className="user-avatar">{initials}</div>
+          <div className="user-email">{userEmail ?? 'Administrador'}</div>
         </div>
-      </aside>
-    </>
+        <button
+          className="btn-logout"
+          onClick={handleLogout}
+          title="Cerrar sesión"
+          aria-label="Cerrar sesión"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          <span className="btn-logout-label">Cerrar sesión</span>
+        </button>
+      </div>
+    </aside>
   )
 }

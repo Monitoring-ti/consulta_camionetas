@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { saveVehicleAction, deleteVehicleAction } from '@/app/actions'
+import { saveVehicleAction, deleteVehicleAction, reactivateVehicleAction } from '@/app/actions'
 import { validateVehiclePayload } from '@/lib/utils/vehicle-form'
 import type { Vehicle } from '@/types/app.types'
 
@@ -85,7 +85,7 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
   }
 
   async function handleDelete() {
-    if (!confirm('¿Seguro que deseas desactivar este vehículo?')) return
+    if (!confirm('¿Desactivar este vehículo? Pasará al historial: se conservan datos e inspecciones, y saldrá de la flota activa y del checklist de terreno.')) return
     setLoading(true)
     setError('')
     try {
@@ -94,7 +94,24 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
         setError(res.error || 'Error al desactivar vehículo')
         return
       }
-      router.push('/vehicles')
+      router.push('/vehicles#historial')
+      router.refresh()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleReactivate() {
+    if (!confirm('¿Reactivar este vehículo y devolverlo a la flota activa?')) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await reactivateVehicleAction(initialData!.id)
+      if (!res.ok) {
+        setError(res.error || 'Error al reactivar vehículo')
+        return
+      }
+      router.push(`/vehicles/${initialData!.id}`)
       router.refresh()
     } finally {
       setLoading(false)
@@ -257,9 +274,14 @@ export default function VehicleForm({ initialData, mode }: VehicleFormProps) {
             Cancelar
           </button>
         </div>
-        {mode === 'edit' && initialData?.is_active && (
+        {mode === 'edit' && initialData?.is_active !== false && (
           <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={loading}>
             Desactivar
+          </button>
+        )}
+        {mode === 'edit' && initialData?.is_active === false && (
+          <button type="button" className="btn btn-primary" onClick={handleReactivate} disabled={loading}>
+            Reactivar
           </button>
         )}
       </div>

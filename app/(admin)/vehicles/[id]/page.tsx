@@ -5,6 +5,7 @@ import { formatRut } from '@/lib/utils/formatters'
 import Link from 'next/link'
 import type { Vehicle } from '@/types/app.types'
 import VehicleQR from '@/components/vehicles/VehicleQR'
+import ReactivateVehicleButton from '@/components/vehicles/ReactivateVehicleButton'
 
 const DOC_FIELDS: { key: keyof Vehicle; label: string; linkKey?: keyof Vehicle }[] = [
   { key: 'fecha_revision_tecnica', label: 'Revisión Técnica' },
@@ -22,12 +23,13 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
   if (!vehicle) return notFound()
 
   const inspeccionesList = await fetchInspectionsByPatente(vehicle.patente, 20)
+  const isActive = vehicle.is_active !== false
 
   return (
     <>
       <div className="page-header">
         <div className="breadcrumb">
-          <Link href="/vehicles">Vehículos</Link>
+          <Link href="/vehicles">{isActive ? 'Vehículos' : 'Historial'}</Link>
           <span className="breadcrumb-sep">/</span>
           <span>{vehicle.patente}</span>
         </div>
@@ -35,17 +37,26 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
           <div>
             <h1 className="page-title">{vehicle.patente}</h1>
             <p className="page-subtitle">{vehicle.marca} {vehicle.modelo} · {vehicle.anio}</p>
+            {!isActive && (
+              <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                En historial: datos e inspecciones conservados. No disponible en terreno hasta reactivar.
+              </p>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-            <span className={`badge ${vehicle.is_active ? 'badge-active' : 'badge-inactive'}`} style={{ padding: '6px 14px' }}>
-              {vehicle.is_active ? 'Activo' : 'Inactivo'}
+          <div style={{ display: 'flex', gap: 10, marginTop: 4, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <span className={`badge ${isActive ? 'badge-active' : 'badge-inactive'}`} style={{ padding: '6px 14px' }}>
+              {isActive ? 'Activo' : 'Historial'}
             </span>
+            {!isActive && <ReactivateVehicleButton vehicleId={id} />}
             <Link href={`/vehicles/${id}/edit`} className="btn btn-secondary">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
                 <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
               </svg>
               Editar
+            </Link>
+            <Link href={isActive ? '/vehicles' : '/vehicles#historial'} className="btn btn-secondary">
+              Volver
             </Link>
           </div>
         </div>

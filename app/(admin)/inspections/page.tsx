@@ -1,6 +1,6 @@
 import {
   fetchInspections,
-  fetchVehicles,
+  fetchActiveVehicles,
 } from '@/app/actions'
 import { formatDate } from '@/lib/utils/dates'
 import { formatRut } from '@/lib/utils/formatters'
@@ -44,7 +44,7 @@ export default async function InspectionsPage({
       desde: params.desde,
       hasta: params.hasta,
     }),
-    fetchVehicles(),
+    fetchActiveVehicles(),
   ])
 
   return (

@@ -1,6 +1,8 @@
 'use client'
 
+import { useState, useTransition } from 'react'
 import { getDocStatus } from '@/lib/utils/dates'
+import { reactivateVehicleAction } from '@/app/actions'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Vehicle } from '@/types/app.types'
@@ -22,8 +24,40 @@ function worstDocStatus(v: Vehicle): 'ok' | 'warning' | 'danger' | 'nodata' {
   return 'nodata'
 }
 
-export default function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
+type VehiclesTableProps = {
+  vehicles: Vehicle[]
+  mode?: 'active' | 'history'
+  emptyMessage?: string
+  showCreateCta?: boolean
+}
+
+export default function VehiclesTable({
+  vehicles,
+  mode = 'active',
+  emptyMessage,
+  showCreateCta = false,
+}: VehiclesTableProps) {
   const router = useRouter()
+  const [error, setError] = useState('')
+  const [pendingId, setPendingId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const isHistory = mode === 'history'
+
+  async function handleReactivate(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm('¿Reactivar este vehículo y devolverlo a la flota activa?')) return
+    setError('')
+    setPendingId(id)
+    startTransition(async () => {
+      const res = await reactivateVehicleAction(id)
+      setPendingId(null)
+      if (!res.ok) {
+        setError(res.error || 'No se pudo reactivar el vehículo')
+        return
+      }
+      router.refresh()
+    })
+  }
 
   if (vehicles.length === 0) {
     return (
@@ -51,10 +85,12 @@ export default function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                       <path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v9a2 2 0 01-2 2h-2" />
                       <circle cx="7.5" cy="17.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" />
                     </svg>
-                    <p>No hay vehículos registrados</p>
-                    <Link href="/vehicles/new" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
-                      Crear el primero
-                    </Link>
+                    <p>{emptyMessage ?? (isHistory ? 'No hay vehículos en el historial' : 'No hay vehículos activos')}</p>
+                    {showCreateCta && (
+                      <Link href="/vehicles/new" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
+                        Crear el primero
+                      </Link>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -67,6 +103,11 @@ export default function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
 
   return (
     <div className="card">
+      {error && (
+        <div className="login-error" style={{ margin: 16, marginBottom: 0 }}>
+          {error}
+        </div>
+      )}
       <div className="table-wrapper">
         <table>
           <thead>
@@ -97,6 +138,7 @@ export default function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                 danger: '✕ Vencido',
                 nodata: '— Sin datos',
               }
+              const busy = isPending && pendingId === v.id
               return (
                 <tr key={v.id} onClick={() => router.push(`/vehicles/${v.id}`)}>
                   <td className="primary" style={{ fontWeight: 700, letterSpacing: '0.05em' }}>
@@ -114,13 +156,29 @@ export default function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                   </td>
                   <td>
                     <span className={`badge ${v.is_active ? 'badge-active' : 'badge-inactive'}`}>
-                      {v.is_active ? 'Activo' : 'Inactivo'}
+                      {v.is_active ? 'Activo' : 'Historial'}
                     </span>
                   </td>
                   <td onClick={e => e.stopPropagation()}>
-                    <Link href={`/vehicles/${v.id}/edit`} className="btn btn-secondary btn-sm">
-                      Editar
-                    </Link>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <Link href={`/vehicles/${v.id}`} className="btn btn-secondary btn-sm">
+                        Ver
+                      </Link>
+                      {isHistory ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          disabled={busy}
+                          onClick={e => handleReactivate(v.id, e)}
+                        >
+                          {busy ? '…' : 'Reactivar'}
+                        </button>
+                      ) : (
+                        <Link href={`/vehicles/${v.id}/edit`} className="btn btn-secondary btn-sm">
+                          Editar
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )

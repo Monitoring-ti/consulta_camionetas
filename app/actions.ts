@@ -163,15 +163,30 @@ export async function fetchAlertasVencimiento(): Promise<AlertaDocVenc[]> {
 }
 
 // ─── Vehículos (service role: RLS bloquea lecturas con cliente autenticado) ───
-export async function fetchVehicles(): Promise<Vehicle[]> {
+export async function fetchVehicles(options?: {
+  activeOnly?: boolean
+}): Promise<Vehicle[]> {
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('vehicles')
-    .select('*')
-    .order('patente')
+  let query = supabase.from('vehicles').select('*').order('patente')
 
+  if (options?.activeOnly) {
+    query = query.eq('is_active', true)
+  }
+
+  const { data, error } = await query
   if (error) throw new Error(error.message)
   return (data ?? []) as Vehicle[]
+}
+
+export async function fetchActiveVehicles(): Promise<Vehicle[]> {
+  return fetchVehicles({ activeOnly: true })
+}
+
+export async function fetchInactiveVehicles(): Promise<Vehicle[]> {
+  const all = await fetchVehicles()
+  return all
+    .filter(v => v.is_active === false)
+    .sort((a, b) => a.patente.localeCompare(b.patente, 'es'))
 }
 
 export async function fetchVehicleById(id: string): Promise<Vehicle | null> {
@@ -214,6 +229,12 @@ export async function saveVehicleAction(
     const patenteKey = normalizePatente(String(data.patente ?? ''))
     const duplicate = await findVehicleByNormalizedPatente(patenteKey, mode === 'edit' ? id : undefined)
     if (duplicate) {
+      if (duplicate.is_active === false) {
+        return {
+          ok: false,
+          error: `La patente ${duplicate.patente} está en el historial (desactivada). Reactívela desde Vehículos → Historial en lugar de crear otra.`,
+        }
+      }
       return {
         ok: false,
         error: `Ya existe un vehículo con patente ${duplicate.patente}. Use otro registro o edite el existente.`,
@@ -258,11 +279,55 @@ export async function deleteVehicleAction(id: string) {
       return { ok: false, error: translateVehicleDbError(error.message, error.code) }
     }
     revalidatePath('/vehicles')
+    revalidatePath('/inspections')
     revalidatePath('/dashboard')
     revalidatePath(`/vehicles/${id}`)
     return { ok: true }
   } catch (err: any) {
     return { ok: false, error: err.message || 'Error del servidor' }
+  }
+}
+
+/** Reactiva un vehículo del historial (is_active = true). Conserva todos sus datos. */
+export async function reactivateVehicleAction(id: string) {
+  try {
+    const existing = await fetchVehicleById(id)
+    if (!existing) {
+      return { ok: false as const, error: 'Vehículo no encontrado.' }
+    }
+    if (existing.is_active !== false) {
+      return { ok: false as const, error: 'El vehículo ya está activo.' }
+    }
+
+    const patenteKey = normalizePatente(existing.patente)
+    const conflict = await findVehicleByNormalizedPatente(patenteKey, id)
+    if (conflict && conflict.is_active !== false) {
+      return {
+        ok: false as const,
+        error: `No se puede reactivar: ya hay un vehículo activo con patente ${conflict.patente}.`,
+      }
+    }
+
+    const supabase = createAdminClient()
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update({ is_active: true } as unknown as never)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      return { ok: false as const, error: translateVehicleDbError(error.message, error.code) }
+    }
+
+    revalidatePath('/vehicles')
+    revalidatePath('/inspections')
+    revalidatePath('/dashboard')
+    revalidatePath(`/vehicles/${id}`)
+    revalidatePath(`/vehicles/${id}/edit`)
+    return { ok: true as const, data: data as Vehicle }
+  } catch (err: any) {
+    return { ok: false as const, error: err.message || 'Error del servidor' }
   }
 }
 

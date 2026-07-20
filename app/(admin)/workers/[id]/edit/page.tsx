@@ -22,7 +22,7 @@ export default async function WorkerEditPage({ params }: Props) {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Editar Vencimientos</h1>
+        <h1 className="page-title">Licencias del trabajador</h1>
         <p className="page-subtitle">{nombreCompleto} · {worker.numero_identificacion}</p>
       </div>
 

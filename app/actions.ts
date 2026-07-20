@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createAuthClient } from '@/lib/supabase/server'
-import { normalizePatente } from '@/lib/utils/patente'
+import { formatPatenteDisplay, normalizePatente } from '@/lib/utils/patente'
+import {
+  groupInspectionsByWeek,
+  summarizeInspectors,
+  isInspectionApto,
+} from '@/lib/utils/inspection-history'
 import { translateVehicleDbError, validateVehiclePayload } from '@/lib/utils/vehicle-form'
 import type {
   TrabajadorDocVenc,
@@ -33,19 +38,66 @@ const WORKER_SELECT = [
   'vencimiento_psicosensometrico',
   'licencia_conducir_tipo',
   'licencia_conducir_numero',
+  'numero_licencia_interna',
+  'vencimiento_licencia_interna',
 ].join(', ')
+
+const WORKER_SELECT_LEGACY = [
+  'id_trabajador',
+  'numero_identificacion',
+  'nombre_1',
+  'nombre_2',
+  'apellido_paterno',
+  'apellido_materno',
+  'cargo',
+  'area_departamento',
+  'tipo_identificacion',
+  'vencimiento_licencia_conducir',
+  'vencimiento_examen_ocupacional',
+  'vencimiento_altura_geo',
+  'vencimiento_psicosensometrico',
+  'licencia_conducir_tipo',
+  'licencia_conducir_numero',
+].join(', ')
+
+function withInternalLicenseDefaults(
+  rows: Array<Record<string, unknown>>
+): TrabajadorDocVenc[] {
+  return rows.map(row => ({
+    ...(row as unknown as TrabajadorDocVenc),
+    numero_licencia_interna: (row.numero_licencia_interna as string | null | undefined) ?? null,
+    vencimiento_licencia_interna:
+      (row.vencimiento_licencia_interna as string | null | undefined) ?? null,
+  }))
+}
+
+function isMissingInternalLicenseColumn(message: string): boolean {
+  return (
+    message.includes('numero_licencia_interna') ||
+    message.includes('vencimiento_licencia_interna')
+  )
+}
 
 // ─── Obtener todos los trabajadores (solo docs) ───────────────────────────────
 export async function fetchWorkers(): Promise<TrabajadorDocVenc[]> {
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('trabajadores')
+  const { data, error } = await (supabase.from('trabajadores') as any)
     .select(WORKER_SELECT)
     .eq('tipo_identificacion', 'RUT')
     .order('apellido_paterno')
 
-  if (error) throw new Error(error.message)
-  return (data ?? []) as TrabajadorDocVenc[]
+  if (error) {
+    if (isMissingInternalLicenseColumn(String(error.message ?? ''))) {
+      const legacy = await (supabase.from('trabajadores') as any)
+        .select(WORKER_SELECT_LEGACY)
+        .eq('tipo_identificacion', 'RUT')
+        .order('apellido_paterno')
+      if (legacy.error) throw new Error(legacy.error.message)
+      return withInternalLicenseDefaults((legacy.data ?? []) as Array<Record<string, unknown>>)
+    }
+    throw new Error(error.message)
+  }
+  return withInternalLicenseDefaults((data ?? []) as Array<Record<string, unknown>>)
 }
 
 // ─── Buscar trabajador por RUT ────────────────────────────────────────────────
@@ -53,30 +105,74 @@ export async function findWorkerByRut(rut: string): Promise<TrabajadorDocVenc | 
   const supabase = createAdminClient()
   const normalizedRut = rut.replace(/[^0-9kK]/g, '').toUpperCase()
 
-  const { data, error } = await supabase
-    .from('trabajadores')
+  const { data, error } = await (supabase.from('trabajadores') as any)
     .select(WORKER_SELECT)
     .eq('tipo_identificacion', 'RUT')
     .ilike('numero_identificacion', `%${normalizedRut}%`)
     .limit(1)
     .single()
 
-  if (error || !data) return null
-  return data as TrabajadorDocVenc
+  if (error || !data) {
+    if (error && isMissingInternalLicenseColumn(String(error.message ?? ''))) {
+      const legacy = await (supabase.from('trabajadores') as any)
+        .select(WORKER_SELECT_LEGACY)
+        .eq('tipo_identificacion', 'RUT')
+        .ilike('numero_identificacion', `%${normalizedRut}%`)
+        .limit(1)
+        .single()
+      if (legacy.error || !legacy.data) return null
+      return withInternalLicenseDefaults([legacy.data as Record<string, unknown>])[0]
+    }
+    return null
+  }
+  return withInternalLicenseDefaults([data as Record<string, unknown>])[0]
 }
 
-// ─── Actualizar solo vencimientos de documentos ────────────────────────────────
+const DOC_VENC_ALLOWED_KEYS = [
+  'vencimiento_licencia_conducir',
+  'licencia_conducir_tipo',
+  'vencimiento_psicosensometrico',
+  'numero_licencia_interna',
+  'vencimiento_licencia_interna',
+] as const satisfies ReadonlyArray<keyof DocVencPayload>
+
+// ─── Actualizar solo campos de licencia / psico permitidos ───────────────────
 export async function updateWorkerDocuments(
   id_trabajador: string,
   payload: Partial<DocVencPayload>
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    const clean: Partial<DocVencPayload> = {}
+    for (const key of DOC_VENC_ALLOWED_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(payload, key)) {
+        const val = payload[key]
+        clean[key] = typeof val === 'string' && val.trim() === '' ? null : (val ?? null)
+      }
+    }
+
+    if (Object.keys(clean).length === 0) {
+      return { ok: false, error: 'No hay campos permitidos para actualizar' }
+    }
+
     const supabase = createAdminClient()
     const { error } = await (supabase.from('trabajadores') as any)
-      .update(payload)
+      .update(clean)
       .eq('id_trabajador', id_trabajador)
 
-    if (error) return { ok: false, error: error.message }
+    if (error) {
+      if (isMissingInternalLicenseColumn(error.message)) {
+        return {
+          ok: false,
+          error:
+            'Faltan columnas de licencia interna en la base. Aplica la migración 20260720_trabajador_licencia_interna.sql en Supabase.',
+        }
+      }
+      return { ok: false, error: error.message }
+    }
+
+    revalidatePath('/workers')
+    revalidatePath(`/workers/${encodeURIComponent(id_trabajador)}/edit`)
+    revalidatePath('/dashboard')
     return { ok: true }
   } catch (err: any) {
     return { ok: false, error: err.message || 'Error del servidor' }
@@ -99,15 +195,7 @@ export interface AlertaDocVenc {
 export async function fetchAlertasVencimiento(): Promise<AlertaDocVenc[]> {
   const supabase = createAdminClient()
 
-  // Fecha límite: hoy + 60 días
-  const hoy = new Date()
-  const limite = new Date(hoy)
-  limite.setDate(limite.getDate() + 60)
-  const limiteStr = limite.toISOString().split('T')[0]
-  const hoyStr = hoy.toISOString().split('T')[0]
-
-  const { data, error } = await supabase
-    .from('trabajadores')
+  const { data, error } = await (supabase.from('trabajadores') as any)
     .select(`
       id_trabajador,
       nombre_1, apellido_paterno,
@@ -115,34 +203,57 @@ export async function fetchAlertasVencimiento(): Promise<AlertaDocVenc[]> {
       cargo,
       area_departamento,
       vencimiento_licencia_conducir,
-      vencimiento_examen_ocupacional,
-      vencimiento_altura_geo,
-      vencimiento_psicosensometrico
+      vencimiento_psicosensometrico,
+      vencimiento_licencia_interna
     `)
     .eq('tipo_identificacion', 'RUT')
 
-  if (error || !data) return []
+  if (error || !data) {
+    if (error && isMissingInternalLicenseColumn(String(error.message ?? ''))) {
+      const legacy = await (supabase.from('trabajadores') as any)
+        .select(`
+          id_trabajador,
+          nombre_1, apellido_paterno,
+          numero_identificacion,
+          cargo,
+          area_departamento,
+          vencimiento_licencia_conducir,
+          vencimiento_psicosensometrico
+        `)
+        .eq('tipo_identificacion', 'RUT')
+      if (legacy.error || !legacy.data) return []
+      return buildWorkerAlerts(legacy.data as any[], [
+        { key: 'vencimiento_licencia_conducir', label: 'Licencia Conducir' },
+        { key: 'vencimiento_psicosensometrico', label: 'Psicosensométrico' },
+      ])
+    }
+    return []
+  }
 
-  const campos: { key: string; label: string }[] = [
+  return buildWorkerAlerts(data as any[], [
     { key: 'vencimiento_licencia_conducir', label: 'Licencia Conducir' },
-    { key: 'vencimiento_examen_ocupacional', label: 'Examen Ocupacional' },
-    { key: 'vencimiento_altura_geo', label: 'Altura/Geo' },
     { key: 'vencimiento_psicosensometrico', label: 'Psicosensométrico' },
-  ]
+    { key: 'vencimiento_licencia_interna', label: 'Licencia Interna' },
+  ])
+}
 
+function buildWorkerAlerts(
+  data: any[],
+  campos: { key: string; label: string }[]
+): AlertaDocVenc[] {
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
   const alertas: AlertaDocVenc[] = []
 
-  for (const row of data as any[]) {
+  for (const row of data) {
     for (const { key, label } of campos) {
       const fecha = row[key] as string | null
       if (!fecha) continue
 
       const fechaDate = new Date(fecha)
       fechaDate.setHours(0, 0, 0, 0)
-      hoy.setHours(0, 0, 0, 0)
       const daysLeft = Math.ceil((fechaDate.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
 
-      // Solo incluir si vence en los próximos 60 días o ya venció
       if (daysLeft <= 60) {
         alertas.push({
           id_trabajador: row.id_trabajador,
@@ -159,7 +270,6 @@ export async function fetchAlertasVencimiento(): Promise<AlertaDocVenc[]> {
     }
   }
 
-  // Ordenar: vencidos primero, luego por días restantes
   return alertas.sort((a, b) => a.daysLeft - b.daysLeft)
 }
 
@@ -607,14 +717,24 @@ export async function fetchInspections(
   params: FetchInspectionsParams = {}
 ): Promise<{ data: InspectionWithInspector[]; error: string | null }> {
   const supabase = createAdminClient()
+  const vehicleKey = params.vehicle ? normalizePatente(params.vehicle) : ''
+
   let query = supabase
     .from('monitoring_inspections')
     .select('*')
     .order('fecha', { ascending: false })
     .order('hora', { ascending: false })
-    .limit(params.limit ?? 200)
+    .limit(params.limit ?? (params.vehicle ? 500 : 200))
 
-  if (params.vehicle) query = query.eq('patente', params.vehicle)
+  if (params.vehicle && vehicleKey) {
+    const display = formatPatenteDisplay(vehicleKey)
+    const variants = Array.from(
+      new Set([params.vehicle.trim().toUpperCase(), display, vehicleKey].filter(Boolean))
+    )
+    query = query.or(variants.map(v => `patente.eq.${v}`).join(','))
+  } else if (params.vehicle) {
+    query = query.eq('patente', params.vehicle)
+  }
   if (params.resultado) query = query.ilike('resultado', `%${params.resultado}%`)
   if (params.desde) query = query.gte('fecha', params.desde)
   if (params.hasta) query = query.lte('fecha', params.hasta)
@@ -622,8 +742,127 @@ export async function fetchInspections(
   const { data, error } = await query
   if (error) return { data: [], error: error.message }
 
-  const enriched = await enrichInspectionsWithInspector((data as Inspection[]) ?? [])
+  let rows = (data as Inspection[]) ?? []
+  if (vehicleKey) {
+    rows = rows.filter(ins => normalizePatente(ins.patente) === vehicleKey)
+  }
+
+  // Orden estable: fecha desc, hora desc, created_at desc
+  rows.sort((a, b) => {
+    const fd = b.fecha.localeCompare(a.fecha)
+    if (fd !== 0) return fd
+    const hd = String(b.hora ?? '').localeCompare(String(a.hora ?? ''))
+    if (hd !== 0) return hd
+    return String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''))
+  })
+
+  const enriched = await enrichInspectionsWithInspector(rows)
   return { data: enriched, error: null }
+}
+
+export type VehicleInspectionHistory = {
+  inspections: InspectionWithInspector[]
+  weeks: ReturnType<typeof groupInspectionsByWeek>
+  inspectors: ReturnType<typeof summarizeInspectors>
+  frequentProblems: Array<{
+    itemKey: string
+    itemLabel: string
+    seccion: string
+    count: number
+    blockingCount: number
+  }>
+  stats: {
+    total: number
+    aptos: number
+    noAptos: number
+    lastFecha: string | null
+    lastKm: number | null
+  }
+  error: string | null
+}
+
+export async function fetchVehicleInspectionHistory(
+  patente: string,
+  filters: { resultado?: string; desde?: string; hasta?: string } = {}
+): Promise<VehicleInspectionHistory> {
+  const empty: VehicleInspectionHistory = {
+    inspections: [],
+    weeks: [],
+    inspectors: [],
+    frequentProblems: [],
+    stats: { total: 0, aptos: 0, noAptos: 0, lastFecha: null, lastKm: null },
+    error: null,
+  }
+
+  const { data: inspections, error } = await fetchInspections({
+    vehicle: patente,
+    resultado: filters.resultado,
+    desde: filters.desde,
+    hasta: filters.hasta,
+    limit: 500,
+  })
+
+  if (error) return { ...empty, error }
+
+  const weeks = groupInspectionsByWeek(inspections)
+  const inspectors = summarizeInspectors(inspections)
+  const aptos = inspections.filter(i => isInspectionApto(i.resultado)).length
+
+  const frequentProblems: VehicleInspectionHistory['frequentProblems'] = []
+  if (inspections.length > 0) {
+    const supabase = createAdminClient()
+    const ids = inspections.map(i => i.id)
+    // Supabase .in() has practical limits; chunk if needed
+    const chunks: string[][] = []
+    for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100))
+
+    const map = new Map<string, VehicleInspectionHistory['frequentProblems'][number]>()
+    for (const chunk of chunks) {
+      const { data: faults } = await supabase
+        .from('monitoring_inspection_details')
+        .select('item_key, item_label, seccion, is_blocking, inspection_id')
+        .in('inspection_id', chunk)
+        .eq('is_good', false)
+
+      for (const f of (faults as Array<{
+        item_key: string
+        item_label: string
+        seccion: string
+        is_blocking: boolean | null
+        inspection_id: string
+      }> | null) ?? []) {
+        const key = f.item_key || f.item_label
+        const row = map.get(key) ?? {
+          itemKey: f.item_key,
+          itemLabel: f.item_label,
+          seccion: f.seccion,
+          count: 0,
+          blockingCount: 0,
+        }
+        row.count += 1
+        if (f.is_blocking) row.blockingCount += 1
+        map.set(key, row)
+      }
+    }
+    frequentProblems.push(
+      ...Array.from(map.values()).sort((a, b) => b.count - a.count || b.blockingCount - a.blockingCount)
+    )
+  }
+
+  return {
+    inspections,
+    weeks,
+    inspectors,
+    frequentProblems: frequentProblems.slice(0, 12),
+    stats: {
+      total: inspections.length,
+      aptos,
+      noAptos: inspections.length - aptos,
+      lastFecha: inspections[0]?.fecha ?? null,
+      lastKm: inspections[0]?.kilometraje ?? null,
+    },
+    error: null,
+  }
 }
 
 export async function fetchInspectionById(id: string): Promise<InspectionFull | null> {

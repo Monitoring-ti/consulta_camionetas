@@ -23,9 +23,8 @@ const statusLabel: Record<DocStatus, string> = {
 function workerOverallStatus(w: TrabajadorDocVenc): DocStatus {
   return worstStatus([
     getDocStatus(w.vencimiento_licencia_conducir).status,
-    getDocStatus(w.vencimiento_examen_ocupacional).status,
-    getDocStatus(w.vencimiento_altura_geo).status,
     getDocStatus(w.vencimiento_psicosensometrico).status,
+    getDocStatus(w.vencimiento_licencia_interna).status,
   ])
 }
 
@@ -199,33 +198,75 @@ export default function WorkersTable({ workers }: WorkersTableProps) {
                       <th>Trabajador</th>
                       <th>RUT</th>
                       <th>Cargo / Área</th>
+                      <th>Tipos lic.</th>
                       <th>Lic. Conducir</th>
-                      <th>Exam. Ocupacional</th>
-                      <th>Altura/Geo</th>
                       <th>Psicosens.</th>
+                      <th>Lic. Interna</th>
                       <th style={{ textAlign: 'right' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {group.workers.map(w => {
                       const overall = workerOverallStatus(w)
+                      const tipos = (w.licencia_conducir_tipo || '')
+                        .split(/[,;]/)
+                        .map(t => t.trim())
+                        .filter(Boolean)
+                        .join(', ')
                       return (
                         <tr key={w.id_trabajador}>
                           <td className="primary">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span className={`badge ${statusBadge[overall]}`} style={{ width: 8, height: 8, borderRadius: '50%', padding: 0, flexShrink: 0 }} />
+                              <span
+                                className={`badge ${statusBadge[overall]}`}
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: '50%',
+                                  padding: 0,
+                                  flexShrink: 0,
+                                }}
+                              />
                               {w.nombre_1} {w.apellido_paterno}
                             </div>
                           </td>
-                          <td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{w.numero_identificacion}</td>
+                          <td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                            {w.numero_identificacion}
+                          </td>
                           <td>
                             <div style={{ fontSize: '0.85rem' }}>{w.cargo ?? '—'}</div>
-                            {w.area_departamento && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{w.area_departamento}</div>}
+                            {w.area_departamento && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {w.area_departamento}
+                              </div>
+                            )}
                           </td>
-                          <td><DocBadge date={w.vencimiento_licencia_conducir} /></td>
-                          <td><DocBadge date={w.vencimiento_examen_ocupacional} /></td>
-                          <td><DocBadge date={w.vencimiento_altura_geo} /></td>
-                          <td><DocBadge date={w.vencimiento_psicosensometrico} /></td>
+                          <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                            {tipos || '—'}
+                          </td>
+                          <td>
+                            <DocBadge date={w.vencimiento_licencia_conducir} />
+                          </td>
+                          <td>
+                            <DocBadge date={w.vencimiento_psicosensometrico} />
+                          </td>
+                          <td>
+                            <div>
+                              <DocBadge date={w.vencimiento_licencia_interna} />
+                            </div>
+                            {w.numero_licencia_interna && (
+                              <div
+                                style={{
+                                  fontSize: '0.72rem',
+                                  color: 'var(--text-muted)',
+                                  marginTop: 4,
+                                  fontFamily: 'ui-monospace, monospace',
+                                }}
+                              >
+                                N° {w.numero_licencia_interna}
+                              </div>
+                            )}
+                          </td>
                           <td style={{ textAlign: 'right' }}>
                             <Link
                               href={`/workers/${encodeURIComponent(w.id_trabajador)}/edit`}

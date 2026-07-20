@@ -137,7 +137,17 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         <div className="card">
           <div className="card-header">
             <span className="card-title">Historial de Inspecciones</span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{inspeccionesList.length} registros</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {inspeccionesList.length} recientes
+              </span>
+              <Link
+                href={`/inspections?vehicle=${encodeURIComponent(vehicle.patente)}`}
+                className="btn btn-secondary btn-sm"
+              >
+                Ver historial completo
+              </Link>
+            </div>
           </div>
           <div className="table-wrapper">
             <table>

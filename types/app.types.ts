@@ -32,23 +32,25 @@ export interface TrabajadorDocVenc {
   cargo: string | null
   area_departamento: string | null
   tipo_identificacion: string
-  // Documentos
+  // Documentos (admin solo edita un subconjunto — ver DocVencPayload)
   vencimiento_licencia_conducir: string | null
   vencimiento_examen_ocupacional: string | null
   vencimiento_altura_geo: string | null
   vencimiento_psicosensometrico: string | null
   licencia_conducir_tipo: string | null
   licencia_conducir_numero: string | null
+  numero_licencia_interna: string | null
+  vencimiento_licencia_interna: string | null
 }
 
+/** Campos que el admin puede actualizar en trabajadores */
 export type DocVencPayload = Pick<
   TrabajadorDocVenc,
   | 'vencimiento_licencia_conducir'
-  | 'vencimiento_examen_ocupacional'
-  | 'vencimiento_altura_geo'
-  | 'vencimiento_psicosensometrico'
   | 'licencia_conducir_tipo'
-  | 'licencia_conducir_numero'
+  | 'vencimiento_psicosensometrico'
+  | 'numero_licencia_interna'
+  | 'vencimiento_licencia_interna'
 >
 
 // Estado de documento por vencimiento

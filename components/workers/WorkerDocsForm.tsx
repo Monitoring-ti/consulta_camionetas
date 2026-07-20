@@ -1,23 +1,20 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateWorkerDocuments } from '@/app/actions'
 import type { TrabajadorDocVenc, DocVencPayload } from '@/types/app.types'
 import { getDocStatus, formatDate } from '@/lib/utils/dates'
+import {
+  LICENSE_TYPES,
+  parseLicenseTypes,
+  serializeLicenseTypes,
+  type LicenseType,
+} from '@/lib/utils/license-types'
 
 interface WorkerDocsFormProps {
   worker: TrabajadorDocVenc
 }
-
-const DOC_LABELS: { key: keyof DocVencPayload; label: string; isText?: boolean }[] = [
-  { key: 'vencimiento_licencia_conducir', label: 'Vencimiento Licencia Conducir' },
-  { key: 'vencimiento_examen_ocupacional', label: 'Vencimiento Examen Ocupacional' },
-  { key: 'vencimiento_altura_geo', label: 'Vencimiento Altura / Geo' },
-  { key: 'vencimiento_psicosensometrico', label: 'Vencimiento Psicosensométrico' },
-  { key: 'licencia_conducir_tipo', label: 'Tipo Licencia', isText: true },
-  { key: 'licencia_conducir_numero', label: 'N° Licencia', isText: true },
-]
 
 export default function WorkerDocsForm({ worker }: WorkerDocsFormProps) {
   const router = useRouter()
@@ -25,17 +22,18 @@ export default function WorkerDocsForm({ worker }: WorkerDocsFormProps) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
-  const [form, setForm] = useState<DocVencPayload>({
-    vencimiento_licencia_conducir: worker.vencimiento_licencia_conducir ?? '',
-    vencimiento_examen_ocupacional: worker.vencimiento_examen_ocupacional ?? '',
-    vencimiento_altura_geo: worker.vencimiento_altura_geo ?? '',
-    vencimiento_psicosensometrico: worker.vencimiento_psicosensometrico ?? '',
-    licencia_conducir_tipo: worker.licencia_conducir_tipo ?? '',
-    licencia_conducir_numero: worker.licencia_conducir_numero ?? '',
-  })
+  const [vencLicencia, setVencLicencia] = useState(worker.vencimiento_licencia_conducir ?? '')
+  const [vencPsico, setVencPsico] = useState(worker.vencimiento_psicosensometrico ?? '')
+  const [numInterna, setNumInterna] = useState(worker.numero_licencia_interna ?? '')
+  const [vencInterna, setVencInterna] = useState(worker.vencimiento_licencia_interna ?? '')
+  const [tipos, setTipos] = useState<LicenseType[]>(() =>
+    parseLicenseTypes(worker.licencia_conducir_tipo)
+  )
 
-  function set(field: keyof DocVencPayload, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }))
+  function toggleTipo(tipo: LicenseType) {
+    setTipos(prev =>
+      prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]
+    )
     setSuccess(false)
   }
 
@@ -44,11 +42,12 @@ export default function WorkerDocsForm({ worker }: WorkerDocsFormProps) {
     setError('')
     setSuccess(false)
 
-    // Convert empty strings to null for date fields
-    const payload: Partial<DocVencPayload> = {}
-    for (const { key, isText } of DOC_LABELS) {
-      const val = form[key] as string
-      payload[key] = val.trim() === '' ? null : val.trim()
+    const payload: DocVencPayload = {
+      vencimiento_licencia_conducir: vencLicencia.trim() || null,
+      licencia_conducir_tipo: serializeLicenseTypes(tipos),
+      vencimiento_psicosensometrico: vencPsico.trim() || null,
+      numero_licencia_interna: numInterna.trim() || null,
+      vencimiento_licencia_interna: vencInterna.trim() || null,
     }
 
     startTransition(async () => {
@@ -63,46 +62,96 @@ export default function WorkerDocsForm({ worker }: WorkerDocsFormProps) {
   }
 
   const statusBadgeClass: Record<string, string> = {
-    ok: 'badge-ok', warning: 'badge-warning', danger: 'badge-danger', nodata: 'badge-nodata'
+    ok: 'badge-ok',
+    warning: 'badge-warning',
+    danger: 'badge-danger',
+    nodata: 'badge-nodata',
   }
+
+  const statusCards: { label: string; date: string | null; extra?: string }[] = [
+    {
+      label: 'Licencia conducir',
+      date: worker.vencimiento_licencia_conducir,
+      extra: parseLicenseTypes(worker.licencia_conducir_tipo).join(', ') || undefined,
+    },
+    {
+      label: 'Examen psicosensométrico',
+      date: worker.vencimiento_psicosensometrico,
+    },
+    {
+      label: 'Licencia interna',
+      date: worker.vencimiento_licencia_interna,
+      extra: worker.numero_licencia_interna
+        ? `N° ${worker.numero_licencia_interna}`
+        : undefined,
+    },
+  ]
 
   return (
     <form onSubmit={handleSubmit}>
       {error && (
-        <div className="login-error" style={{ marginBottom: 20 }}>{error}</div>
+        <div className="login-error" style={{ marginBottom: 20 }}>
+          {error}
+        </div>
       )}
       {success && (
-        <div style={{
-          background: 'rgba(34,197,94,0.12)',
-          border: '1px solid rgba(34,197,94,0.3)',
-          borderRadius: 8,
-          padding: '10px 16px',
-          marginBottom: 20,
-          color: 'var(--status-ok)',
-          fontSize: '0.875rem'
-        }}>
-          ✓ Datos guardados correctamente
+        <div
+          style={{
+            background: 'rgba(34,197,94,0.12)',
+            border: '1px solid rgba(34,197,94,0.3)',
+            borderRadius: 8,
+            padding: '10px 16px',
+            marginBottom: 20,
+            color: 'var(--status-ok)',
+            fontSize: '0.875rem',
+          }}
+        >
+          Datos guardados correctamente
         </div>
       )}
 
-      {/* Estado actual de documentos */}
       <div className="form-section">
-        <div className="form-section-title">Estado Actual de Documentos</div>
+        <div className="form-section-title">Estado actual</div>
         <div className="form-grid form-grid-2">
-          {(['vencimiento_licencia_conducir', 'vencimiento_examen_ocupacional', 'vencimiento_altura_geo', 'vencimiento_psicosensometrico'] as const).map(key => {
-            const val = worker[key]
-            const stat = getDocStatus(val)
-            const labels: Record<string, string> = {
-              vencimiento_licencia_conducir: 'Licencia Conducir',
-              vencimiento_examen_ocupacional: 'Examen Ocupacional',
-              vencimiento_altura_geo: 'Altura / Geo',
-              vencimiento_psicosensometrico: 'Psicosensométrico',
-            }
+          {statusCards.map(card => {
+            const stat = getDocStatus(card.date)
             return (
-              <div key={key} style={{ padding: '10px 14px', background: 'var(--surface-card)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 4 }}>{labels[key]}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{formatDate(val)}</span>
+              <div
+                key={card.label}
+                style={{
+                  padding: '10px 14px',
+                  background: 'var(--surface-card)',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    marginBottom: 4,
+                  }}
+                >
+                  {card.label}
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                      {formatDate(card.date)}
+                    </div>
+                    {card.extra && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {card.extra}
+                      </div>
+                    )}
+                  </div>
                   <span className={`badge ${statusBadgeClass[stat.status]}`}>{stat.label}</span>
                 </div>
               </div>
@@ -111,30 +160,114 @@ export default function WorkerDocsForm({ worker }: WorkerDocsFormProps) {
         </div>
       </div>
 
-      {/* Editar fechas */}
       <div className="form-section">
-        <div className="form-section-title">Actualizar Vencimientos</div>
+        <div className="form-section-title">Licencia de conducir</div>
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label">Tipo de licencia (puede marcar más de una)</label>
+          <div className="license-type-grid" role="group" aria-label="Tipos de licencia">
+            {LICENSE_TYPES.map(tipo => {
+              const active = tipos.includes(tipo)
+              return (
+                <button
+                  key={tipo}
+                  type="button"
+                  className={`license-type-chip ${active ? 'is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => toggleTipo(tipo)}
+                >
+                  {tipo}
+                </button>
+              )
+            })}
+          </div>
+          <p className="form-hint">
+            Seleccionados:{' '}
+            {tipos.length > 0 ? tipos.join(', ') : 'ninguno'}
+          </p>
+        </div>
+        <div className="form-group">
+          <label className="form-label" htmlFor="venc-licencia">
+            Vencimiento licencia conducir
+          </label>
+          <input
+            id="venc-licencia"
+            className="form-input"
+            type="date"
+            value={vencLicencia}
+            onChange={e => {
+              setVencLicencia(e.target.value)
+              setSuccess(false)
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div className="form-section-title">Examen psicosensométrico</div>
+        <div className="form-group">
+          <label className="form-label" htmlFor="venc-psico">
+            Vencimiento
+          </label>
+          <input
+            id="venc-psico"
+            className="form-input"
+            type="date"
+            value={vencPsico}
+            onChange={e => {
+              setVencPsico(e.target.value)
+              setSuccess(false)
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div className="form-section-title">Licencia interna</div>
         <div className="form-grid form-grid-2">
-          {DOC_LABELS.map(({ key, label, isText }) => (
-            <div className="form-group" key={key}>
-              <label className="form-label">{label}</label>
-              <input
-                className="form-input"
-                type={isText ? 'text' : 'date'}
-                value={form[key] ?? ''}
-                onChange={e => set(key, e.target.value)}
-                placeholder={isText ? '—' : undefined}
-              />
-            </div>
-          ))}
+          <div className="form-group">
+            <label className="form-label" htmlFor="num-interna">
+              Número de licencia interna
+            </label>
+            <input
+              id="num-interna"
+              className="form-input"
+              type="text"
+              value={numInterna}
+              onChange={e => {
+                setNumInterna(e.target.value)
+                setSuccess(false)
+              }}
+              placeholder="Ej. LI-1234"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="venc-interna">
+              Vencimiento licencia interna
+            </label>
+            <input
+              id="venc-interna"
+              className="form-input"
+              type="date"
+              value={vencInterna}
+              onChange={e => {
+                setVencInterna(e.target.value)
+                setSuccess(false)
+              }}
+            />
+          </div>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
         <button type="submit" className="btn btn-primary" disabled={isPending}>
           {isPending ? (
-            <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Guardando…</>
-          ) : 'Guardar Vencimientos'}
+            <>
+              <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />{' '}
+              Guardando…
+            </>
+          ) : (
+            'Guardar'
+          )}
         </button>
         <button type="button" className="btn btn-secondary" onClick={() => router.back()}>
           Cancelar

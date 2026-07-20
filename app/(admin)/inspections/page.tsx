@@ -1,11 +1,15 @@
 import {
   fetchInspections,
-  fetchActiveVehicles,
+  fetchVehicles,
+  fetchVehicleInspectionHistory,
 } from '@/app/actions'
 import { formatDate } from '@/lib/utils/dates'
 import { formatRut } from '@/lib/utils/formatters'
+import { formatPatenteDisplay } from '@/lib/utils/patente'
+import { isInspectionApto } from '@/lib/utils/inspection-history'
 import Link from 'next/link'
 import type { InspectionWithInspector } from '@/types/app.types'
+import VehicleInspectionHistoryView from '@/components/inspections/VehicleInspectionHistoryView'
 
 function mediaCounts(ins: InspectionWithInspector) {
   const photos = [
@@ -36,31 +40,55 @@ export default async function InspectionsPage({
   searchParams: Promise<{ vehicle?: string; resultado?: string; desde?: string; hasta?: string }>
 }) {
   const params = await searchParams
+  const selectedVehicle = params.vehicle?.trim() || ''
 
-  const [{ data: inspections, error }, vehicleList] = await Promise.all([
-    fetchInspections({
-      vehicle: params.vehicle,
-      resultado: params.resultado,
-      desde: params.desde,
-      hasta: params.hasta,
-    }),
-    fetchActiveVehicles(),
+  const [vehicleList, listResult, history] = await Promise.all([
+    fetchVehicles(),
+    selectedVehicle
+      ? Promise.resolve({ data: [] as InspectionWithInspector[], error: null as string | null })
+      : fetchInspections({
+          resultado: params.resultado,
+          desde: params.desde,
+          hasta: params.hasta,
+        }),
+    selectedVehicle
+      ? fetchVehicleInspectionHistory(selectedVehicle, {
+          resultado: params.resultado,
+          desde: params.desde,
+          hasta: params.hasta,
+        })
+      : Promise.resolve(null),
   ])
+
+  const inspections = selectedVehicle ? history?.inspections ?? [] : listResult.data
+  const error = selectedVehicle ? history?.error ?? null : listResult.error
+  const count = selectedVehicle ? history?.stats.total ?? 0 : inspections.length
 
   return (
     <>
       <div className="page-header">
         <h1 className="page-title">Inspecciones</h1>
-        <p className="page-subtitle">{inspections.length} registros encontrados</p>
+        <p className="page-subtitle">
+          {selectedVehicle
+            ? `Historial de ${formatPatenteDisplay(selectedVehicle)} · ${count} registro${count !== 1 ? 's' : ''}`
+            : `${count} registros encontrados · selecciona una patente para ver historial por semana`}
+        </p>
       </div>
 
       <div className="page-body">
         <form method="GET" className="filters-bar" style={{ marginBottom: 20 }}>
-          <select name="vehicle" className="form-select" defaultValue={params.vehicle ?? ''} style={{ minWidth: 220 }}>
+          <select
+            name="vehicle"
+            className="form-select"
+            defaultValue={selectedVehicle}
+            style={{ minWidth: 260 }}
+            aria-label="Filtrar por patente"
+          >
             <option value="">Todos los vehículos</option>
             {vehicleList.map(v => (
-              <option key={v.patente} value={v.patente}>
-                {v.patente} — {v.marca} {v.modelo}
+              <option key={v.id} value={v.patente}>
+                {formatPatenteDisplay(v.patente)} — {v.marca} {v.modelo}
+                {v.is_active === false ? ' (historial)' : ''}
               </option>
             ))}
           </select>
@@ -69,96 +97,153 @@ export default async function InspectionsPage({
             <option value="Apto">Apto</option>
             <option value="No Apto">No Apto</option>
           </select>
-          <input name="desde" type="date" className="form-input" defaultValue={params.desde ?? ''} style={{ width: 160 }} />
-          <input name="hasta" type="date" className="form-input" defaultValue={params.hasta ?? ''} style={{ width: 160 }} />
-          <button type="submit" className="btn btn-primary btn-sm">Filtrar</button>
-          <Link href="/inspections" className="btn btn-secondary btn-sm">Limpiar</Link>
+          <input
+            name="desde"
+            type="date"
+            className="form-input"
+            defaultValue={params.desde ?? ''}
+            style={{ width: 160 }}
+          />
+          <input
+            name="hasta"
+            type="date"
+            className="form-input"
+            defaultValue={params.hasta ?? ''}
+            style={{ width: 160 }}
+          />
+          <button type="submit" className="btn btn-primary btn-sm">
+            Filtrar
+          </button>
+          <Link href="/inspections" className="btn btn-secondary btn-sm">
+            Limpiar
+          </Link>
         </form>
 
         {error && (
-          <div className="login-error" style={{ marginBottom: 16 }}>{error}</div>
+          <div className="login-error" style={{ marginBottom: 16 }}>
+            {error}
+          </div>
         )}
 
-        <div className="card">
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Hora</th>
-                  <th>Patente</th>
-                  <th>Vehículo</th>
-                  <th>Realizada por</th>
-                  <th>Km</th>
-                  <th>Evidencia</th>
-                  <th>Resultado</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {inspections.length === 0 ? (
+        {selectedVehicle && history ? (
+          <VehicleInspectionHistoryView
+            history={history}
+            patente={selectedVehicle}
+            filters={params}
+          />
+        ) : (
+          <div className="card">
+            <div className="table-wrapper">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan={9}>
-                      <div className="empty-state">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
-                        </svg>
-                        <p>No se encontraron inspecciones</p>
-                      </div>
-                    </td>
+                    <th>Fecha</th>
+                    <th>Hora</th>
+                    <th>Patente</th>
+                    <th>Vehículo</th>
+                    <th>Realizada por</th>
+                    <th>Km</th>
+                    <th>Evidencia</th>
+                    <th>Resultado</th>
+                    <th></th>
                   </tr>
-                ) : (
-                  inspections.map(ins => {
-                    const isApto = ins.resultado?.toLowerCase().includes('apto') && !ins.resultado?.toLowerCase().includes('no')
-                    const media = mediaCounts(ins)
-                    return (
-                      <tr key={ins.id}>
-                        <td className="primary">{formatDate(ins.fecha)}</td>
-                        <td>{ins.hora?.slice(0, 5)}</td>
-                        <td className="primary" style={{ fontWeight: 700, letterSpacing: '0.05em' }}>{ins.patente}</td>
-                        <td>{ins.marca_modelo}</td>
-                        <td>
-                          <div style={{ fontWeight: 600 }}>{ins.responsable_inspeccion || '—'}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'ui-monospace, monospace' }}>
-                            {ins.responsable_rut ? formatRut(ins.responsable_rut) : 'Sin RUT'}
-                            {ins.cargo ? ` · ${ins.cargo}` : ''}
-                          </div>
-                        </td>
-                        <td>{ins.kilometraje?.toLocaleString('es-CL')}</td>
-                        <td>
-                          <div className="media-badges">
-                            <span
-                              className={`badge ${media.hasFirma ? 'badge-ok' : 'badge-nodata'}`}
-                              title={media.hasFirma ? 'Firma registrada' : 'Sin firma'}
+                </thead>
+                <tbody>
+                  {inspections.length === 0 ? (
+                    <tr>
+                      <td colSpan={9}>
+                        <div className="empty-state">
+                          <svg
+                            width="40"
+                            height="40"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M9 11l3 3L22 4" />
+                            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                          </svg>
+                          <p>No se encontraron inspecciones</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    inspections.map(ins => {
+                      const apto = isInspectionApto(ins.resultado)
+                      const media = mediaCounts(ins)
+                      return (
+                        <tr key={ins.id}>
+                          <td className="primary">{formatDate(ins.fecha)}</td>
+                          <td>{ins.hora?.slice(0, 5)}</td>
+                          <td>
+                            <Link
+                              href={`/inspections?vehicle=${encodeURIComponent(ins.patente)}`}
+                              className="primary"
+                              style={{
+                                fontWeight: 700,
+                                letterSpacing: '0.05em',
+                                textDecoration: 'none',
+                              }}
+                              title="Ver historial de esta patente"
                             >
-                              Firma
-                            </span>
-                            <span
-                              className={`badge ${media.photos > 0 ? 'badge-ok' : 'badge-nodata'}`}
-                              title={`${media.photos} de 4 imágenes de apoyo`}
+                              {formatPatenteDisplay(ins.patente)}
+                            </Link>
+                          </td>
+                          <td>{ins.marca_modelo}</td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>
+                              {ins.responsable_inspeccion || '—'}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '0.75rem',
+                                color: 'var(--text-muted)',
+                                fontFamily: 'ui-monospace, monospace',
+                              }}
                             >
-                              {media.photos}/4 apoyo
+                              {ins.responsable_rut ? formatRut(ins.responsable_rut) : 'Sin RUT'}
+                              {ins.cargo ? ` · ${ins.cargo}` : ''}
+                            </div>
+                          </td>
+                          <td>{ins.kilometraje?.toLocaleString('es-CL')}</td>
+                          <td>
+                            <div className="media-badges">
+                              <span
+                                className={`badge ${media.hasFirma ? 'badge-ok' : 'badge-nodata'}`}
+                                title={media.hasFirma ? 'Firma registrada' : 'Sin firma'}
+                              >
+                                Firma
+                              </span>
+                              <span
+                                className={`badge ${media.photos > 0 ? 'badge-ok' : 'badge-nodata'}`}
+                                title={`${media.photos} de 4 imágenes de apoyo`}
+                              >
+                                {media.photos}/4 apoyo
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`badge ${apto ? 'badge-apto' : 'badge-no-apto'}`}>
+                              {ins.resultado}
                             </span>
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`badge ${isApto ? 'badge-apto' : 'badge-no-apto'}`}>
-                            {ins.resultado}
-                          </span>
-                        </td>
-                        <td>
-                          <Link href={detailHref(ins.id, params)} className="btn btn-secondary btn-sm">
-                            Ver
-                          </Link>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
+                          </td>
+                          <td>
+                            <Link href={detailHref(ins.id, params)} className="btn btn-secondary btn-sm">
+                              Ver
+                            </Link>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </>
   )

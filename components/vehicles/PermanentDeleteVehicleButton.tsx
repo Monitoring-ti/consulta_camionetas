@@ -17,7 +17,7 @@ export default function PermanentDeleteVehicleButton({
 
   async function handleClick() {
     const ok1 = confirm(
-      `¿Eliminar definitivamente ${patente}?\n\nSolo vehículos desactivados pueden eliminarse. Se registrará quién y cuándo.`
+      `¿Eliminar definitivamente ${patente}?\n\nSe borrarán también todas las inspecciones de esta patente. Esta acción no se puede deshacer. Se registrará quién y cuándo.`
     )
     if (!ok1) return
     const typed = window.prompt(`Para confirmar, escriba la patente exactamente:\n${patente}`)

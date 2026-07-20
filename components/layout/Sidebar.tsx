@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { APP_VERSION } from '@/lib/version'
 
 const navItems = [
   {
@@ -161,6 +162,9 @@ export default function Sidebar({ userEmail }: SidebarProps) {
       </nav>
 
       <div className="sidebar-footer">
+        <div className="sidebar-version" title={`Versión ${APP_VERSION}`}>
+          v{APP_VERSION}
+        </div>
         <div className="user-info" title={userEmail ?? 'Administrador'}>
           <div className="user-avatar">{initials}</div>
           <div className="user-email">{userEmail ?? 'Administrador'}</div>

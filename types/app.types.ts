@@ -14,6 +14,10 @@ export type InspectorUpdate = Database['public']['Tables']['inspectors']['Update
 export type InspectionWithInspector = Inspection & {
   responsable_rut: string | null
   trabajador_id: string | null
+  /** Ítems del checklist en mal estado */
+  hallazgos_count?: number
+  /** Hallazgos con foto de evidencia */
+  hallazgos_con_foto?: number
 }
 
 export interface InspectionFull {

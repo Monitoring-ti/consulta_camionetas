@@ -225,6 +225,13 @@ export default function VehicleInspectionHistoryView({ history, patente, filters
                               >
                                 {media.photos}/4 apoyo
                               </span>
+                              {(ins.hallazgos_count ?? 0) > 0 && (
+                                <span className="badge badge-warning">
+                                  {(ins.hallazgos_con_foto ?? 0) > 0
+                                    ? `${ins.hallazgos_con_foto} foto hallazgo`
+                                    : `${ins.hallazgos_count} problema${(ins.hallazgos_count ?? 0) !== 1 ? 's' : ''}`}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td>

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { formatDate } from '@/lib/utils/dates'
 import { formatRut } from '@/lib/utils/formatters'
 import { PhotoViewer, PhotoPlaceholder } from '@/components/inspections/PhotoViewer'
+import HallazgoEvidence from '@/components/inspections/HallazgoEvidence'
 import PrintReportButton from '@/components/inspections/PrintReportButton'
 import Link from 'next/link'
 import type { InspectionDetail } from '@/types/app.types'
@@ -48,7 +49,9 @@ export default async function InspectionDetailPage({
   if (!full) return notFound()
 
   const { inspection: ins, details } = full
-  const isApto = ins.resultado?.toLowerCase().includes('apto') && !ins.resultado?.toLowerCase().includes('no')
+  const isApto =
+    ins.resultado?.toLowerCase().includes('apto') &&
+    !ins.resultado?.toLowerCase().includes('no')
 
   const sections = details.reduce<Record<string, InspectionDetail[]>>((acc, d) => {
     if (!acc[d.seccion]) acc[d.seccion] = []
@@ -56,11 +59,10 @@ export default async function InspectionDetailPage({
     return acc
   }, {})
 
-  const totalHallazgos = details.filter(d => !d.is_good).length
-  const hallazgosBloqueantes = details.filter(d => !d.is_good && d.is_blocking).length
-  const fotosApoyoItems = details.filter(d => d.foto_url)
-  const hallazgosConFoto = fotosApoyoItems.filter(d => !d.is_good)
-  const otrasFotosApoyo = fotosApoyoItems.filter(d => d.is_good)
+  const hallazgos = details.filter(d => !d.is_good)
+  const totalHallazgos = hallazgos.length
+  const hallazgosBloqueantes = hallazgos.filter(d => d.is_blocking).length
+  const hallazgosConFoto = hallazgos.filter(d => d.foto_url).length
   const vehiclePhotosPresent = VEHICLE_PHOTO_SLOTS.filter(s => ins[s.key]).length
   const hasFirma = Boolean(ins.firma_url)
 
@@ -70,16 +72,28 @@ export default async function InspectionDetailPage({
         <div className="breadcrumb no-print">
           <Link href={backHref}>Inspecciones</Link>
           <span className="breadcrumb-sep">/</span>
-          <span>{ins.patente} — {formatDate(ins.fecha)}</span>
+          <span>
+            {ins.patente} — {formatDate(ins.fecha)}
+          </span>
         </div>
         <div className="print-only print-report-header">
           <div className="print-report-brand">MAT Monitoring</div>
           <div className="print-report-title">Reporte de inspección</div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            flexWrap: 'wrap',
+            gap: 12,
+          }}
+        >
           <div>
             <h1 className="page-title">Inspección — {ins.patente}</h1>
-            <p className="page-subtitle">{ins.marca_modelo} · {formatDate(ins.fecha)} a las {ins.hora?.slice(0, 5)}</p>
+            <p className="page-subtitle">
+              {ins.marca_modelo} · {formatDate(ins.fecha)} a las {ins.hora?.slice(0, 5)}
+            </p>
             <div className="media-badges no-print" style={{ marginTop: 10 }}>
               <span className={`badge ${hasFirma ? 'badge-ok' : 'badge-nodata'}`}>
                 {hasFirma ? 'Firma' : 'Sin firma'}
@@ -87,19 +101,35 @@ export default async function InspectionDetailPage({
               <span className={`badge ${vehiclePhotosPresent > 0 ? 'badge-ok' : 'badge-nodata'}`}>
                 Apoyo {vehiclePhotosPresent}/4
               </span>
-              {hallazgosConFoto.length > 0 && (
+              {totalHallazgos > 0 && (
                 <span className="badge badge-warning">
-                  {hallazgosConFoto.length} foto{hallazgosConFoto.length !== 1 ? 's' : ''} de hallazgo
+                  {totalHallazgos} hallazgo{totalHallazgos !== 1 ? 's' : ''}
+                  {hallazgosConFoto > 0
+                    ? ` · ${hallazgosConFoto} foto${hallazgosConFoto !== 1 ? 's' : ''}`
+                    : ''}
                 </span>
               )}
             </div>
           </div>
           <div className="inspection-detail-actions">
-            <span className={`badge ${isApto ? 'badge-apto' : 'badge-no-apto'}`} style={{ padding: '8px 18px', fontSize: '0.9rem' }}>
+            <span
+              className={`badge ${isApto ? 'badge-apto' : 'badge-no-apto'}`}
+              style={{ padding: '8px 18px', fontSize: '0.9rem' }}
+            >
               {ins.resultado}
             </span>
             <Link href={backHref} className="btn btn-secondary no-print">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
                 <line x1="19" y1="12" x2="5" y2="12" />
                 <polyline points="12 19 5 12 12 5" />
               </svg>
@@ -113,7 +143,9 @@ export default async function InspectionDetailPage({
       <div className="page-body">
         <div className="inspection-top-grid">
           <div className="card">
-            <div className="card-header"><span className="card-title">Datos de la Inspección</span></div>
+            <div className="card-header">
+              <span className="card-title">Datos de la Inspección</span>
+            </div>
             <div className="card-body">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 {[
@@ -124,18 +156,37 @@ export default async function InspectionDetailPage({
                   { label: 'Cargo', value: ins.cargo || '—' },
                   { label: 'Fecha', value: formatDate(ins.fecha) },
                   { label: 'Hora', value: ins.hora?.slice(0, 5) },
-                  { label: 'Kilometraje', value: `${ins.kilometraje?.toLocaleString('es-CL')} km` },
+                  {
+                    label: 'Kilometraje',
+                    value: `${ins.kilometraje?.toLocaleString('es-CL')} km`,
+                  },
                   { label: 'Combustible', value: ins.nivel_combustible ?? '—' },
                   { label: 'Observaciones', value: ins.observaciones ?? '—' },
                 ].map(item => (
                   <div key={item.label}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>{item.label}</div>
-                    <div style={{
-                      fontSize: '0.9rem',
-                      color: 'var(--text-primary)',
-                      fontWeight: 500,
-                      fontFamily: item.label === 'RUT' ? 'ui-monospace, monospace' : undefined,
-                    }}>{item.value}</div>
+                    <div
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.07em',
+                        marginBottom: 2,
+                      }}
+                    >
+                      {item.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '0.9rem',
+                        color: 'var(--text-primary)',
+                        fontWeight: 500,
+                        fontFamily:
+                          item.label === 'RUT' ? 'ui-monospace, monospace' : undefined,
+                      }}
+                    >
+                      {item.value}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -146,7 +197,11 @@ export default async function InspectionDetailPage({
             <div className="kpi-card danger">
               <div className="kpi-label">Hallazgos</div>
               <div className="kpi-value">{totalHallazgos}</div>
-              <div className="kpi-sub">items con problema</div>
+              <div className="kpi-sub">
+                {hallazgosConFoto > 0
+                  ? `${hallazgosConFoto} con foto de evidencia`
+                  : 'items con problema'}
+              </div>
             </div>
             {hallazgosBloqueantes > 0 && (
               <div className="kpi-card danger">
@@ -157,7 +212,9 @@ export default async function InspectionDetailPage({
             )}
             <div className="card">
               <div className="card-header">
-                <span className="card-title" style={{ fontSize: '0.8rem' }}>Firma del inspector</span>
+                <span className="card-title" style={{ fontSize: '0.8rem' }}>
+                  Firma del inspector
+                </span>
               </div>
               <div className="card-body" style={{ padding: 12 }}>
                 {hasFirma ? (
@@ -176,7 +233,8 @@ export default async function InspectionDetailPage({
           </div>
         </div>
 
-        {/* Imágenes de apoyo — 4 ángulos generales del vehículo */}
+        <HallazgoEvidence items={hallazgos} />
+
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="card-header">
             <span className="card-title">Imágenes de apoyo</span>
@@ -185,7 +243,10 @@ export default async function InspectionDetailPage({
             </span>
           </div>
           <div className="card-body">
-            <p className="no-print" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 14 }}>
+            <p
+              className="no-print"
+              style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 14 }}
+            >
               Fotos generales capturadas durante la inspección (lateral, trasera y frontal).
             </p>
             <div className="photos-grid photos-grid--vehicle">
@@ -204,62 +265,6 @@ export default async function InspectionDetailPage({
           </div>
         </div>
 
-        {/* Evidencia de hallazgos */}
-        {hallazgosConFoto.length > 0 && (
-          <div className="card" style={{ marginBottom: 24 }}>
-            <div className="card-header">
-              <span className="card-title">Fotos de hallazgos</span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                {hallazgosConFoto.length} evidencia{hallazgosConFoto.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="card-body">
-              <div className="photos-grid">
-                {hallazgosConFoto.map(item => (
-                  <div key={item.id}>
-                    <PhotoViewer
-                      src={item.foto_url!}
-                      alt={`Hallazgo: ${item.item_label}`}
-                      label={item.item_label}
-                    />
-                    {item.is_blocking && (
-                      <div className="photo-label" style={{ color: 'var(--status-danger)', fontWeight: 600 }}>
-                        Bloqueante
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Otras fotos adjuntas a ítems OK (si existen) */}
-        {otrasFotosApoyo.length > 0 && (
-          <div className="card" style={{ marginBottom: 24 }}>
-            <div className="card-header">
-              <span className="card-title">Otras imágenes de apoyo</span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                {otrasFotosApoyo.length} adjuntas a ítems OK
-              </span>
-            </div>
-            <div className="card-body">
-              <div className="photos-grid">
-                {otrasFotosApoyo.map(item => (
-                  <div key={item.id}>
-                    <PhotoViewer
-                      src={item.foto_url!}
-                      alt={`Apoyo: ${item.item_label}`}
-                      label={item.item_label}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Checklist por sección */}
         {Object.keys(sections).length > 0 && (
           <div className="card" style={{ marginBottom: 24 }}>
             <div className="card-header">
@@ -273,20 +278,49 @@ export default async function InspectionDetailPage({
                 <div key={seccion} className="checklist-section">
                   <div className="checklist-section-title">{seccion}</div>
                   {items.map(item => (
-                    <div key={item.id} className="checklist-item">
+                    <div
+                      key={item.id}
+                      className={`checklist-item ${!item.is_good ? 'checklist-item--bad' : ''}`}
+                    >
                       <div className="checklist-icon">
                         {item.is_good ? (
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-ok)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="var(--status-ok)"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
                         ) : (
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="var(--status-danger)"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
                           </svg>
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            flexWrap: 'wrap',
+                          }}
+                        >
                           <span className="checklist-label">{item.item_label}</span>
                           {item.is_blocking && !item.is_good && (
                             <span className="checklist-blocking">BLOQUEANTE</span>
@@ -294,6 +328,11 @@ export default async function InspectionDetailPage({
                         </div>
                         {item.descripcion && (
                           <div className="checklist-desc">{item.descripcion}</div>
+                        )}
+                        {item.geotag && !item.is_good && (
+                          <div className="checklist-desc" style={{ fontSize: '0.72rem' }}>
+                            GPS: {item.geotag}
+                          </div>
                         )}
                       </div>
                       {item.foto_url ? (

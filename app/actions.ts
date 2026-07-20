@@ -9,6 +9,7 @@ import {
   summarizeInspectors,
   isInspectionApto,
 } from '@/lib/utils/inspection-history'
+import { resolveVehiclePhotoUrl } from '@/lib/utils/storage-url'
 import { translateVehicleDbError, validateVehiclePayload } from '@/lib/utils/vehicle-form'
 import type {
   TrabajadorDocVenc,
@@ -474,7 +475,7 @@ export async function reactivateVehicleAction(id: string) {
 
 /**
  * Eliminación definitiva solo desde historial (desactivado).
- * Registra quién y cuándo en vehicles + vehicle_deletion_log.
+ * Borra inspecciones y detalles asociados a la patente, y registra auditoría del vehículo.
  */
 export async function permanentlyDeleteVehicleAction(id: string) {
   try {
@@ -503,7 +504,78 @@ export async function permanentlyDeleteVehicleAction(id: string) {
     const deletedAt = new Date().toISOString()
     const deletedBy = user.email
     const supabase = createAdminClient()
+    const patenteKey = normalizePatente(existing.patente)
 
+    // ── 1) Inspecciones de esta patente (variantes de formato) ──
+    const display = formatPatenteDisplay(patenteKey)
+    const patenteVariants = Array.from(
+      new Set([existing.patente.trim().toUpperCase(), display, patenteKey].filter(Boolean))
+    )
+
+    let inspectionsToDelete: Array<{ id: string; patente: string }> = []
+    {
+      const { data: matched, error: inspFetchError } = await supabase
+        .from('monitoring_inspections')
+        .select('id, patente')
+        .or(patenteVariants.map(v => `patente.eq.${v}`).join(','))
+
+      if (inspFetchError) {
+        return { ok: false as const, error: inspFetchError.message }
+      }
+
+      inspectionsToDelete = ((matched as Array<{ id: string; patente: string }> | null) ?? []).filter(
+        row => normalizePatente(row.patente) === patenteKey
+      )
+    }
+    const inspectionIds = inspectionsToDelete.map(r => r.id)
+
+    if (inspectionIds.length > 0) {
+      for (let i = 0; i < inspectionIds.length; i += 100) {
+        const chunk = inspectionIds.slice(i, i + 100)
+
+        const { error: detailsError } = await supabase
+          .from('monitoring_inspection_details')
+          .delete()
+          .in('inspection_id', chunk)
+
+        if (detailsError) {
+          return {
+            ok: false as const,
+            error: `No se pudieron borrar los detalles de inspección: ${detailsError.message}`,
+          }
+        }
+
+        // Tabla legada (si existe); ignorar si no está en el esquema
+        const resultsDelete = await supabase
+          .from('monitoring_inspection_results')
+          .delete()
+          .in('inspection_id', chunk)
+        if (
+          resultsDelete.error &&
+          !resultsDelete.error.message.includes('monitoring_inspection_results') &&
+          resultsDelete.error.code !== '42P01'
+        ) {
+          return {
+            ok: false as const,
+            error: `No se pudieron borrar resultados de inspección: ${resultsDelete.error.message}`,
+          }
+        }
+
+        const { error: inspDeleteError } = await supabase
+          .from('monitoring_inspections')
+          .delete()
+          .in('id', chunk)
+
+        if (inspDeleteError) {
+          return {
+            ok: false as const,
+            error: `No se pudieron borrar las inspecciones: ${inspDeleteError.message}`,
+          }
+        }
+      }
+    }
+
+    // ── 2) Auditoría del vehículo ──
     const { error: logError } = await supabase.from('vehicle_deletion_log').insert([
       {
         vehicle_id: existing.id,
@@ -511,7 +583,11 @@ export async function permanentlyDeleteVehicleAction(id: string) {
         marca: existing.marca,
         modelo: existing.modelo,
         anio: existing.anio,
-        snapshot: existing as unknown as Record<string, unknown>,
+        snapshot: {
+          vehicle: existing,
+          inspections_deleted: inspectionIds.length,
+          inspection_ids: inspectionIds,
+        } as unknown as Record<string, unknown>,
         deleted_by: deletedBy,
         deleted_at: deletedAt,
       },
@@ -552,7 +628,7 @@ export async function permanentlyDeleteVehicleAction(id: string) {
     revalidatePath('/inspections')
     revalidatePath('/dashboard')
     revalidatePath(`/vehicles/${id}`)
-    return { ok: true as const }
+    return { ok: true as const, inspectionsDeleted: inspectionIds.length }
   } catch (err: any) {
     return { ok: false as const, error: err.message || 'Error del servidor' }
   }
@@ -757,7 +833,47 @@ export async function fetchInspections(
   })
 
   const enriched = await enrichInspectionsWithInspector(rows)
-  return { data: enriched, error: null }
+  const withHallazgos = await enrichInspectionsWithHallazgoCounts(enriched)
+  return { data: withHallazgos, error: null }
+}
+
+async function enrichInspectionsWithHallazgoCounts(
+  inspections: InspectionWithInspector[]
+): Promise<InspectionWithInspector[]> {
+  if (inspections.length === 0) return inspections
+
+  const supabase = createAdminClient()
+  const ids = inspections.map(i => i.id)
+  const counts = new Map<string, { hallazgos: number; conFoto: number }>()
+
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100)
+    const { data } = await supabase
+      .from('monitoring_inspection_details')
+      .select('inspection_id, is_good, foto_url')
+      .in('inspection_id', chunk)
+      .eq('is_good', false)
+
+    for (const row of (data as Array<{
+      inspection_id: string
+      is_good: boolean
+      foto_url: string | null
+    }> | null) ?? []) {
+      const cur = counts.get(row.inspection_id) ?? { hallazgos: 0, conFoto: 0 }
+      cur.hallazgos += 1
+      if (row.foto_url) cur.conFoto += 1
+      counts.set(row.inspection_id, cur)
+    }
+  }
+
+  return inspections.map(ins => {
+    const c = counts.get(ins.id)
+    return {
+      ...ins,
+      hallazgos_count: c?.hallazgos ?? 0,
+      hallazgos_con_foto: c?.conFoto ?? 0,
+    }
+  })
 }
 
 export type VehicleInspectionHistory = {
@@ -881,10 +997,26 @@ export async function fetchInspectionById(id: string): Promise<InspectionFull | 
   if (error || !insData) return null
 
   const [enriched] = await enrichInspectionsWithInspector([insData as Inspection])
-  return {
-    inspection: enriched,
-    details: (detailsData as InspectionDetail[]) ?? [],
+
+  const inspection: InspectionWithInspector = {
+    ...enriched,
+    firma_url: resolveVehiclePhotoUrl(enriched.firma_url) ?? enriched.firma_url,
+    foto_frontal: resolveVehiclePhotoUrl(enriched.foto_frontal),
+    foto_trasera: resolveVehiclePhotoUrl(enriched.foto_trasera),
+    foto_lateral_der: resolveVehiclePhotoUrl(enriched.foto_lateral_der),
+    foto_lateral_izq: resolveVehiclePhotoUrl(enriched.foto_lateral_izq),
   }
+
+  const details = ((detailsData as InspectionDetail[]) ?? []).map(d => ({
+    ...d,
+    foto_url: resolveVehiclePhotoUrl(d.foto_url),
+  }))
+
+  const hallazgos = details.filter(d => !d.is_good)
+  inspection.hallazgos_count = hallazgos.length
+  inspection.hallazgos_con_foto = hallazgos.filter(d => d.foto_url).length
+
+  return { inspection, details }
 }
 
 export async function fetchInspectionsByPatente(

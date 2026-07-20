@@ -6,7 +6,7 @@ interface PhotoViewerProps {
   src: string
   alt: string
   /** Visual size / treatment */
-  variant?: 'default' | 'sm' | 'signature'
+  variant?: 'default' | 'sm' | 'signature' | 'hallazgo'
   /** Optional caption under the thumb */
   label?: string
 }

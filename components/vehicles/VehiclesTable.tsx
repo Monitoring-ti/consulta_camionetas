@@ -65,7 +65,7 @@ export default function VehiclesTable({
   async function handlePermanentDelete(v: Vehicle, e: React.MouseEvent) {
     e.stopPropagation()
     const ok1 = confirm(
-      `¿Eliminar definitivamente ${v.patente}?\n\nSolo vehículos desactivados pueden eliminarse. Se registrará quién y cuándo lo eliminó. Las inspecciones históricas por patente se conservan.`
+      `¿Eliminar definitivamente ${v.patente}?\n\nSe borrarán también todas las inspecciones de esta patente. Esta acción no se puede deshacer. Se registrará quién y cuándo.`
     )
     if (!ok1) return
     const typed = window.prompt(
